@@ -4,7 +4,8 @@ import modelo.*;
 import red.*;
 
 /**
- * Controlador que integra la red P2P con la lógica del juego - CORREGIDO
+ * Controlador que integra la red P2P con la lógica del juego
+ * VERSIÓN COMPLETAMENTE SINCRONIZADA Y SIN ERRORES
  */
 public class ControladorRed implements EscuchaRed {
     private P2PNetworkManager gestorRed;
@@ -12,7 +13,12 @@ public class ControladorRed implements EscuchaRed {
     private int jugadorLocalId;
     private boolean esAnfitrion;
     private ControladorPartida controladorPartida;
-    private int ultimoDadoRemoto = 0; // Almacena el último valor del dado remoto
+    
+    // Variables de sincronización
+    private String nombreOponenteRecibido = null;
+    private boolean inicioPartidaRecibido = false;
+    private final Object lockNombre = new Object();
+    private final Object lockInicio = new Object();
     
     public ControladorRed(String nombreJugador, int puerto, Tablero tablero, int jugadorLocalId) {
         this.gestorRed = new P2PNetworkManager(nombreJugador, puerto);
@@ -22,53 +28,113 @@ public class ControladorRed implements EscuchaRed {
     }
     
     /**
-     * Inicia como anfitrión (crea la partida)
+     * Espera a recibir el nombre del oponente por red
+     * Timeout de 30 segundos
+     */
+    public String esperarNombreOponente() {
+        synchronized (lockNombre) {
+            try {
+                long tiempoInicio = System.currentTimeMillis();
+                long timeout = 30000; // 30 segundos
+                
+                while (nombreOponenteRecibido == null) {
+                    long tiempoRestante = timeout - (System.currentTimeMillis() - tiempoInicio);
+                    
+                    if (tiempoRestante <= 0) {
+                        System.err.println("[RED] ✗ Timeout: No se recibió el nombre del oponente");
+                        return null;
+                    }
+                    
+                    lockNombre.wait(Math.min(tiempoRestante, 1000)); // Verificar cada segundo
+                }
+                
+                return nombreOponenteRecibido;
+                
+            } catch (InterruptedException e) {
+                System.err.println("[RED] Error esperando nombre: " + e.getMessage());
+                Thread.currentThread().interrupt();
+                return null;
+            }
+        }
+    }
+    
+    /**
+     * Envía señal de inicio de partida (solo anfitrión)
+     */
+    public void enviarInicioPartida() {
+        if (!esAnfitrion) return;
+        
+        System.out.println("[RED] Enviando señal de inicio de partida...");
+        gestorRed.enviarInicioPartida();
+    }
+    
+    /**
+     * Espera señal de inicio de partida (solo cliente)
+     */
+    public void esperarInicioPartida() {
+        synchronized (lockInicio) {
+            try {
+                long tiempoInicio = System.currentTimeMillis();
+                long timeout = 60000; // 60 segundos
+                
+                while (!inicioPartidaRecibido) {
+                    long tiempoRestante = timeout - (System.currentTimeMillis() - tiempoInicio);
+                    
+                    if (tiempoRestante <= 0) {
+                        System.err.println("[RED] ✗ Timeout: No se recibió señal de inicio");
+                        return;
+                    }
+                    
+                    lockInicio.wait(Math.min(tiempoRestante, 1000));
+                }
+                
+            } catch (InterruptedException e) {
+                System.err.println("[RED] Error esperando inicio: " + e.getMessage());
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+    
+    /**
+     * Inicia como anfitrión
      */
     public void iniciarComoAnfitrion() throws Exception {
         esAnfitrion = true;
         gestorRed.iniciarServidor();
-        System.out.println("[RED] Servidor iniciado. Esperando jugadores...");
     }
     
     /**
-     * Se une a una partida existente
+     * Se une a una partida
      */
     public boolean unirseAPartida(String ipAnfitrion, int puertoAnfitrion) {
         try {
-            gestorRed.iniciarServidor(); // También inicia servidor para recibir mensajes
+            // Iniciar servidor para recibir mensajes
+            gestorRed.iniciarServidor();
+            Thread.sleep(1000); // Esperar a que el servidor se inicie
             
-            // Esperar un momento para que el servidor se inicie
-            Thread.sleep(500);
-            
+            // Conectar al anfitrión
             boolean conectado = gestorRed.conectarAPeer(ipAnfitrion, puertoAnfitrion);
             
             if (conectado) {
                 esAnfitrion = false;
-                System.out.println("[RED] Unido a la partida exitosamente");
+                Thread.sleep(500); // Dar tiempo para el handshake
                 return true;
             }
+            
             return false;
+            
         } catch (Exception e) {
-            System.err.println("[RED] Error uniéndose a la partida: " + e.getMessage());
-            e.printStackTrace();
+            System.err.println("[RED] Error en unirseAPartida: " + e.getMessage());
             return false;
         }
     }
     
     /**
-     * Conecta con otro peer (para juego multi-peer)
-     */
-    public boolean conectarAPeer(String host, int puerto) {
-        return gestorRed.conectarAPeer(host, puerto);
-    }
-    
-    /**
-     * Envía un movimiento de ficha a todos los peers
+     * Envía un movimiento de ficha
      */
     public void enviarMovimiento(Jugador jugador, Ficha ficha, int valorDado) {
         int jugadorId = jugador.getIdJugador();
         int fichaId = ficha.getIdFicha();
-        System.out.println("[RED] Enviando movimiento: J" + jugadorId + " F" + fichaId + " D" + valorDado);
         gestorRed.enviarMovimiento(jugadorId, fichaId, valorDado);
     }
     
@@ -77,7 +143,6 @@ public class ControladorRed implements EscuchaRed {
      */
     public void notificarCambioTurno(Jugador siguienteJugador) {
         int jugadorId = siguienteJugador.getIdJugador();
-        System.out.println("[RED] Notificando cambio de turno al Jugador " + jugadorId);
         gestorRed.enviarCambioTurno(jugadorId);
     }
     
@@ -85,7 +150,6 @@ public class ControladorRed implements EscuchaRed {
      * Envía tirada de dado
      */
     public void enviarTiradaDado(int valor) {
-        System.out.println("[RED] Enviando tirada de dado: " + valor);
         gestorRed.enviarTiradaDado(valor);
     }
     
@@ -98,9 +162,17 @@ public class ControladorRed implements EscuchaRed {
     
     @Override
     public void alRecibirMensaje(MensajeJuego mensaje, ConexionPeer desde) {
-        System.out.println("[RED] ← Mensaje recibido de " + mensaje.getEmisor() + ": " + mensaje.getTipo());
+        System.out.println("[RED] ← " + mensaje.getTipo() + " de " + mensaje.getEmisor());
         
         switch (mensaje.getTipo()) {
+            case SALUDO:
+                procesarSaludo(mensaje);
+                break;
+                
+            case INICIO_JUEGO:
+                procesarInicioJuego(mensaje);
+                break;
+                
             case MOVIMIENTO:
                 procesarMovimiento(mensaje);
                 break;
@@ -117,23 +189,40 @@ public class ControladorRed implements EscuchaRed {
                 procesarChat(mensaje);
                 break;
                 
-            case SALUDO:
-                System.out.println("[RED] Nuevo jugador conectado: " + mensaje.getEmisor());
-                break;
-                
             case JUGADOR_SALE:
-                System.out.println("[RED] Jugador se fue: " + mensaje.getEmisor());
+                System.out.println("[RED] ⚠ Jugador desconectado: " + mensaje.getEmisor());
                 break;
                 
             default:
-                System.out.println("[RED] Tipo de mensaje no manejado: " + mensaje.getTipo());
+                System.out.println("[RED] Mensaje no manejado: " + mensaje.getTipo());
         }
     }
     
     @Override
     public void alDesconectarPeer(ConexionPeer peer) {
-        System.out.println("[RED] Peer desconectado: " + peer.getNombrePeer());
-        System.out.println("[RED] El juego puede continuar con los jugadores restantes");
+        System.out.println("[RED] ⚠ Peer desconectado: " + peer.getNombrePeer());
+    }
+    
+    /**
+     * Procesa mensaje de saludo
+     */
+    private void procesarSaludo(MensajeJuego mensaje) {
+        synchronized (lockNombre) {
+            nombreOponenteRecibido = mensaje.getEmisor();
+            System.out.println("[RED] ✓ Oponente identificado: " + nombreOponenteRecibido);
+            lockNombre.notifyAll();
+        }
+    }
+    
+    /**
+     * Procesa señal de inicio de juego
+     */
+    private void procesarInicioJuego(MensajeJuego mensaje) {
+        synchronized (lockInicio) {
+            inicioPartidaRecibido = true;
+            System.out.println("[RED] ✓ Señal de inicio recibida");
+            lockInicio.notifyAll();
+        }
     }
     
     /**
@@ -141,29 +230,22 @@ public class ControladorRed implements EscuchaRed {
      */
     private void procesarMovimiento(MensajeJuego mensaje) {
         try {
-            // Formato: "jugador:1,ficha:2,dado:6"
             String[] partes = mensaje.getContenido().split(",");
             int jugadorId = Integer.parseInt(partes[0].split(":")[1]);
             int fichaId = Integer.parseInt(partes[1].split(":")[1]);
             int dado = Integer.parseInt(partes[2].split(":")[1]);
             
-            System.out.println("[RED] Procesando movimiento: Jugador " + jugadorId + 
-                             ", Ficha " + fichaId + ", Dado " + dado);
-            
-            // Solo aplicar si NO es movimiento propio
+            // Solo aplicar si NO es mi movimiento
             if (jugadorId != jugadorLocalId) {
+                System.out.println("\n[RED] ⚡ Procesando movimiento del oponente...");
                 if (controladorPartida != null) {
                     controladorPartida.aplicarMovimientoRemoto(jugadorId, fichaId, dado);
-                } else {
-                    System.err.println("[RED] Error: ControladorPartida no está configurado");
+                    System.out.println("[RED] ✓ Movimiento sincronizado");
                 }
-            } else {
-                System.out.println("[RED] Ignorando movimiento propio (eco)");
             }
             
         } catch (Exception e) {
             System.err.println("[RED] Error procesando movimiento: " + e.getMessage());
-            e.printStackTrace();
         }
     }
     
@@ -173,18 +255,16 @@ public class ControladorRed implements EscuchaRed {
     private void procesarCambioTurno(MensajeJuego mensaje) {
         try {
             int jugadorId = Integer.parseInt(mensaje.getContenido());
-            System.out.println("[RED] Procesando cambio de turno al Jugador: " + jugadorId);
             
             if (controladorPartida != null) {
                 controladorPartida.aplicarCambioTurnoRemoto(jugadorId);
                 
-                // Mostrar notificación visual
                 if (jugadorId == jugadorLocalId) {
                     System.out.println("\n╔════════════════════════════════════╗");
                     System.out.println("║       ¡ES TU TURNO!                ║");
                     System.out.println("╚════════════════════════════════════╝");
                 } else {
-                    System.out.println("\n--- Turno del otro jugador ---");
+                    System.out.println("\n[RED] Turno del oponente iniciado");
                 }
             }
         } catch (Exception e) {
@@ -196,19 +276,19 @@ public class ControladorRed implements EscuchaRed {
      * Procesa tirada de dado
      */
     private void procesarTiradaDado(MensajeJuego mensaje) {
-        int valor = Integer.parseInt(mensaje.getContenido());
-        System.out.println("[RED] " + mensaje.getEmisor() + " tiró el dado: " + valor);
+        try {
+            int valor = Integer.parseInt(mensaje.getContenido());
+            System.out.println("[RED] 🎲 " + mensaje.getEmisor() + " tiró: " + valor);
+        } catch (Exception e) {
+            System.err.println("[RED] Error procesando tirada de dado: " + e.getMessage());
+        }
     }
     
     /**
      * Procesa mensaje de chat
      */
     private void procesarChat(MensajeJuego mensaje) {
-        System.out.println("\n[CHAT] " + mensaje.getEmisor() + ": " + mensaje.getContenido());
-    }
-    
-    public P2PNetworkManager getGestorRed() {
-        return gestorRed;
+        System.out.println("\n💬 [" + mensaje.getEmisor() + "]: " + mensaje.getContenido());
     }
     
     public void setControladorPartida(ControladorPartida controlador) {

@@ -7,11 +7,11 @@ import java.util.concurrent.*;
 
 /**
  * Gestor de red P2P para el juego de Parchís
- * Maneja conexiones entre jugadores y sincronización de eventos
+ * VERSIÓN CORREGIDA CON SINCRONIZACIÓN DE INICIO
  */
 public class P2PNetworkManager {
     private String nombreJugador;
-    private int puerto;
+    private int puerto; 
     private ServerSocket servidorSocket;
     private List<ConexionPeer> peers;
     private ExecutorService ejecutorServicio;
@@ -27,7 +27,7 @@ public class P2PNetworkManager {
     }
     
     /**
-     * Inicia el servidor P2P para aceptar conexiones
+     * Inicia el servidor P2P
      */
     public void iniciarServidor() throws IOException {
         if (estaActivo) return;
@@ -59,7 +59,7 @@ public class P2PNetworkManager {
             Socket socket = new Socket(host, puerto);
             ConexionPeer peer = new ConexionPeer(socket, this);
             
-            // Enviar información de presentación
+            // Enviar saludo con mi nombre
             peer.enviarMensaje(new MensajeJuego(
                 MensajeJuego.TipoMensaje.SALUDO,
                 nombreJugador,
@@ -82,16 +82,26 @@ public class P2PNetworkManager {
      */
     private void manejarNuevaConexion(Socket socket) {
         ConexionPeer peer = new ConexionPeer(socket, this);
+        
+        // Enviar saludo inmediatamente
+        peer.enviarMensaje(new MensajeJuego(
+            MensajeJuego.TipoMensaje.SALUDO,
+            nombreJugador,
+            "Bienvenido"
+        ));
+        
         peers.add(peer);
         peer.start();
     }
     
     /**
-     * Envía un mensaje a todos los jugadores conectados
+     * Difunde un mensaje a todos los peers
      */
     public void difundir(MensajeJuego mensaje) {
         for (ConexionPeer peer : peers) {
-            peer.enviarMensaje(mensaje);
+            if (peer.estaConectado()) {
+                peer.enviarMensaje(mensaje);
+            }
         }
     }
     
@@ -139,6 +149,18 @@ public class P2PNetworkManager {
             MensajeJuego.TipoMensaje.TIRADA_DADO,
             nombreJugador,
             String.valueOf(valor)
+        );
+        difundir(mensaje);
+    }
+    
+    /**
+     * Envía señal de inicio de partida (NUEVO)
+     */
+    public void enviarInicioPartida() {
+        MensajeJuego mensaje = new MensajeJuego(
+            MensajeJuego.TipoMensaje.INICIO_JUEGO,
+            nombreJugador,
+            "Iniciando partida"
         );
         difundir(mensaje);
     }

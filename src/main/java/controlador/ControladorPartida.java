@@ -1,5 +1,5 @@
 /**
- * Capa de control del patrón MVC - VERSIÓN CON RED P2P CORREGIDA
+ * Capa de control del patrón MVC - VERSIÓN OPTIMIZADA
  * Coordina la interacción entre modelo, vista y red
  */
 package controlador;
@@ -15,11 +15,8 @@ public class ControladorPartida {
     private Scanner scanner;
     private Ficha ultimaFichaMovida;
     private ControladorRed controladorRed;
-    private int jugadorLocalId; // ID del jugador en esta máquina
+    private int jugadorLocalId;
     
-    /**
-     * Constructor del controlador
-     */
     public ControladorPartida(Partida partida, PantallaPartida vista, Scanner scanner, int jugadorLocalId) {
         this.partida = partida;
         this.vista = vista;
@@ -29,25 +26,16 @@ public class ControladorPartida {
         this.jugadorLocalId = jugadorLocalId;
     }
     
-    /**
-     * Establece el controlador de red
-     */
     public void setControladorRed(ControladorRed controladorRed) {
         this.controladorRed = controladorRed;
         controladorRed.setControladorPartida(this);
     }
     
-    /**
-     * Verifica si es el turno del jugador local
-     */
     public boolean esTurnoLocal() {
         Jugador jugadorActual = partida.getTurnoActual();
         return jugadorActual.getIdJugador() == jugadorLocalId;
     }
     
-    /**
-     * Inicia el turno de un jugador
-     */
     public void iniciarTurno() {
         Jugador jugadorActual = partida.getTurnoActual();
         
@@ -68,9 +56,6 @@ public class ControladorPartida {
         lanzarDado();
     }
     
-    /**
-     * Ejecuta el lanzamiento de dado y lógica de movimiento
-     */
     public void lanzarDado() {
         Jugador jugadorActual = partida.getTurnoActual();
         Dado dado = partida.getDado();
@@ -102,13 +87,10 @@ public class ControladorPartida {
         int seleccion = solicitarSeleccionFicha(fichasDisponibles.size());
         Ficha fichaSeleccionada = fichasDisponibles.get(seleccion - 1);
         
-        moverFicha(fichaSeleccionada, valorDado, true); // true = enviar por red
+        moverFicha(fichaSeleccionada, valorDado, true);
         aplicarReglasDelTurno(valorDado);
     }
     
-    /**
-     * Solicita al usuario seleccionar una ficha
-     */
     private int solicitarSeleccionFicha(int maxOpciones) {
         int seleccion = -1;
         while (seleccion < 1 || seleccion > maxOpciones) {
@@ -129,14 +111,13 @@ public class ControladorPartida {
     
     /**
      * Mueve una ficha en el tablero
-     * @param enviarPorRed si es true, envía el movimiento a otros jugadores
      */
     public void moverFicha(Ficha ficha, int pasos, boolean enviarPorRed) {
         Jugador jugadorActual = partida.getTurnoActual();
         Tablero tablero = partida.getTablero();
         ReglasJuego reglas = partida.getReglas();
         
-        // REGLA: Sacar ficha con 5
+        // Sacar ficha con 5
         if (ficha.isEnCasa() && reglas.verificarSacarFichaConCinco(pasos)) {
             ficha.setEnCasa(false);
             int posicionSalida = obtenerPosicionSalida(jugadorActual.getColor());
@@ -155,7 +136,7 @@ public class ControladorPartida {
             ultimaFichaMovida = ficha;
         }
         
-        // Enviar movimiento por red solo si se solicita
+        // Enviar movimiento por red
         if (enviarPorRed && controladorRed != null) {
             controladorRed.enviarMovimiento(jugadorActual, ficha, pasos);
         }
@@ -164,12 +145,10 @@ public class ControladorPartida {
     }
     
     /**
-     * Aplica un movimiento recibido desde la red
+     * Aplica movimiento recibido desde la red
      */
     public void aplicarMovimientoRemoto(int jugadorId, int fichaId, int pasos) {
-        System.out.println("\n[RED] Aplicando movimiento del Jugador " + jugadorId);
-        
-        // Buscar el jugador
+        // Buscar jugador
         Jugador jugador = null;
         for (Jugador j : partida.getJugadores()) {
             if (j.getIdJugador() == jugadorId) {
@@ -183,7 +162,7 @@ public class ControladorPartida {
             return;
         }
         
-        // Buscar la ficha
+        // Buscar ficha
         Ficha ficha = null;
         for (Ficha f : jugador.getFichas()) {
             if (f.getIdFicha() == fichaId) {
@@ -197,15 +176,10 @@ public class ControladorPartida {
             return;
         }
         
-        // Aplicar el movimiento SIN enviarlo por red (evitar bucle)
+        // Aplicar movimiento SIN enviarlo por red (evitar bucle)
         moverFicha(ficha, pasos, false);
-        
-        System.out.println("[RED] Movimiento aplicado exitosamente");
     }
     
-    /**
-     * Obtiene la posición de salida según el color del jugador
-     */
     private int obtenerPosicionSalida(String color) {
         switch (color.toLowerCase()) {
             case "amarillo": return 5;
@@ -216,9 +190,6 @@ public class ControladorPartida {
         }
     }
     
-    /**
-     * Aplica las reglas del juego después de un movimiento
-     */
     public void aplicarReglasDelJuego(Ficha ficha) {
         ReglasJuego reglas = partida.getReglas();
         Tablero tablero = partida.getTablero();
@@ -227,17 +198,14 @@ public class ControladorPartida {
         reglas.aplicar(jugadorActual, ficha, tablero);
     }
     
-    /**
-     * Aplica reglas del turno: turno extra o cambio de jugador
-     */
     private void aplicarReglasDelTurno(int valorDado) {
         ReglasJuego reglas = partida.getReglas();
         
-        // REGLA: Turno extra con 6
+        // Turno extra con 6
         if (reglas.verificarTurnoExtra(valorDado)) {
             partida.incrementarContadorSeis();
             
-            // REGLA: Tres 6 seguidos - penalización
+            // Tres 6 seguidos - penalización
             if (reglas.verificarTresSeisSeguidos(partida.getContadorSeis())) {
                 vista.mostrarMensaje("¡TRES 6 SEGUIDOS! La última ficha movida regresa a casa.");
                 if (ultimaFichaMovida != null && !ultimaFichaMovida.isEnMeta()) {
@@ -251,14 +219,12 @@ public class ControladorPartida {
                 partida.reiniciarContadorSeis();
                 partida.cambiarTurno();
                 
-                // Notificar cambio de turno por red
                 if (controladorRed != null) {
                     controladorRed.notificarCambioTurno(partida.getTurnoActual());
                 }
             } else {
                 vista.mostrarMensaje("¡Sacaste 6! Tienes un turno extra.");
                 
-                // Si hay red, solo continuar si es el jugador local
                 if (controladorRed == null || esTurnoLocal()) {
                     vista.mostrarMensaje("Presiona ENTER para continuar");
                     scanner.nextLine();
@@ -269,7 +235,6 @@ public class ControladorPartida {
             partida.reiniciarContadorSeis();
             partida.cambiarTurno();
             
-            // Notificar cambio de turno por red
             if (controladorRed != null) {
                 controladorRed.notificarCambioTurno(partida.getTurnoActual());
             }
@@ -280,22 +245,14 @@ public class ControladorPartida {
      * Aplica cambio de turno recibido desde la red
      */
     public void aplicarCambioTurnoRemoto(int jugadorId) {
-        System.out.println("\n[RED] Cambio de turno al Jugador " + jugadorId);
-        
-        // Usar el metodo de Partida para cambiar el turno correctamente
         partida.setTurnoActual(jugadorId);
         
-        // Mostrar notificación
+        // Mostrar notificación solo si es mi turno
         if (jugadorId == jugadorLocalId) {
-            System.out.println("\n╔════════════════════════════════════╗");
-            System.out.println("║       ¡ES TU TURNO!                ║");
-            System.out.println("╚════════════════════════════════════╝");
+            System.out.println("\n>>> ¡Tu turno! Presiona ENTER en el ciclo del juego <<<");
         }
     }
     
-    /**
-     * Verifica si algún jugador gano la partida
-     */
     public boolean verificarFinPartida() {
         for (Jugador j : partida.getJugadores()) {
             int fichasEnMeta = 0;
