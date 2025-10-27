@@ -1,5 +1,5 @@
 /**
- * Representa una ficha del juego
+ * Representa una ficha del juego - VERSIÓN CORREGIDA
  * Cada jugador tiene 4 fichas
  */
 package modelo;
@@ -11,6 +11,7 @@ public class Ficha {
     private int posicion;
     private boolean enCasa;
     private boolean enMeta;
+    private int jugadorId; // ID del jugador dueño de esta ficha
     
     /**
      * Constructor de ficha
@@ -23,6 +24,22 @@ public class Ficha {
         this.posicion = -1;
         this.enCasa = true;
         this.enMeta = false;
+    }
+    
+    /**
+     * Constructor con ID de jugador
+     */
+    public Ficha(String color, int jugadorId) {
+        this(color);
+        this.jugadorId = jugadorId;
+    }
+    
+    /**
+     * Resetea el contador de IDs (útil para pruebas o reiniciar partidas)
+     * IMPORTANTE: Llamar este método al inicio del programa para sincronizar IDs
+     */
+    public static void resetearContador() {
+        contadorId = 0;
     }
     
     /**
@@ -64,4 +81,17 @@ public class Ficha {
     public void setEnCasa(boolean enCasa) { this.enCasa = enCasa; }
     public boolean isEnMeta() { return enMeta; }
     public void setEnMeta(boolean enMeta) { this.enMeta = enMeta; }
+    public int getJugadorId() { return jugadorId; }
+    public void setJugadorId(int jugadorId) { this.jugadorId = jugadorId; }
+    
+    @Override
+    public String toString() {
+        return "Ficha{" +
+                "id=" + idFicha +
+                ", color='" + color + '\'' +
+                ", pos=" + posicion +
+                ", enCasa=" + enCasa +
+                ", enMeta=" + enMeta +
+                '}';
+    }
 }

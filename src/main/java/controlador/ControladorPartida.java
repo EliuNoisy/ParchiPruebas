@@ -1,5 +1,5 @@
 /**
- * Capa de control del patrón MVC - VERSIÓN CON RED P2P
+ * Capa de control del patrón MVC - VERSIÓN CON RED P2P CORREGIDA
  * Coordina la interacción entre modelo, vista y red
  */
 package controlador;
@@ -14,21 +14,23 @@ public class ControladorPartida {
     private PantallaPartida vista;
     private Scanner scanner;
     private Ficha ultimaFichaMovida;
-    private ControladorRed controladorRed;  // NUEVO: Controlador de red
+    private ControladorRed controladorRed;
+    private int jugadorLocalId; // ID del jugador en esta máquina
     
     /**
      * Constructor del controlador
      */
-    public ControladorPartida(Partida partida, PantallaPartida vista, Scanner scanner) {
+    public ControladorPartida(Partida partida, PantallaPartida vista, Scanner scanner, int jugadorLocalId) {
         this.partida = partida;
         this.vista = vista;
         this.scanner = scanner;
         this.ultimaFichaMovida = null;
         this.controladorRed = null;
+        this.jugadorLocalId = jugadorLocalId;
     }
     
     /**
-     * NUEVO: Establece el controlador de red
+     * Establece el controlador de red
      */
     public void setControladorRed(ControladorRed controladorRed) {
         this.controladorRed = controladorRed;
@@ -36,11 +38,29 @@ public class ControladorPartida {
     }
     
     /**
+     * Verifica si es el turno del jugador local
+     */
+    public boolean esTurnoLocal() {
+        Jugador jugadorActual = partida.getTurnoActual();
+        return jugadorActual.getIdJugador() == jugadorLocalId;
+    }
+    
+    /**
      * Inicia el turno de un jugador
      */
     public void iniciarTurno() {
         Jugador jugadorActual = partida.getTurnoActual();
+        
+        // Si hay red y no es mi turno, no hacer nada
+        if (controladorRed != null && !esTurnoLocal()) {
+            return;
+        }
+        
         vista.mostrarTurnoActual(jugadorActual);
+        
+        if (controladorRed != null) {
+            System.out.println("\n*** ES TU TURNO ***");
+        }
         
         vista.mostrarMensaje("Presiona ENTER para lanzar el dado");
         scanner.nextLine();
@@ -58,7 +78,7 @@ public class ControladorPartida {
         int valorDado = dado.lanzar();
         vista.mostrarResultadoDado(valorDado);
         
-        // NUEVO: Enviar tirada de dado por red
+        // Enviar tirada de dado por red
         if (controladorRed != null) {
             controladorRed.enviarTiradaDado(valorDado);
         }
@@ -82,7 +102,7 @@ public class ControladorPartida {
         int seleccion = solicitarSeleccionFicha(fichasDisponibles.size());
         Ficha fichaSeleccionada = fichasDisponibles.get(seleccion - 1);
         
-        moverFicha(fichaSeleccionada, valorDado);
+        moverFicha(fichaSeleccionada, valorDado, true); // true = enviar por red
         aplicarReglasDelTurno(valorDado);
     }
     
@@ -109,8 +129,9 @@ public class ControladorPartida {
     
     /**
      * Mueve una ficha en el tablero
+     * @param enviarPorRed si es true, envía el movimiento a otros jugadores
      */
-    public void moverFicha(Ficha ficha, int pasos) {
+    public void moverFicha(Ficha ficha, int pasos, boolean enviarPorRed) {
         Jugador jugadorActual = partida.getTurnoActual();
         Tablero tablero = partida.getTablero();
         ReglasJuego reglas = partida.getReglas();
@@ -134,12 +155,52 @@ public class ControladorPartida {
             ultimaFichaMovida = ficha;
         }
         
-        // NUEVO: Enviar movimiento por red
-        if (controladorRed != null) {
+        // Enviar movimiento por red solo si se solicita
+        if (enviarPorRed && controladorRed != null) {
             controladorRed.enviarMovimiento(jugadorActual, ficha, pasos);
         }
         
         aplicarReglasDelJuego(ficha);
+    }
+    
+    /**
+     * Aplica un movimiento recibido desde la red
+     */
+    public void aplicarMovimientoRemoto(int jugadorId, int fichaId, int pasos) {
+        System.out.println("\n[RED] Aplicando movimiento del Jugador " + jugadorId);
+        
+        // Buscar el jugador
+        Jugador jugador = null;
+        for (Jugador j : partida.getJugadores()) {
+            if (j.getIdJugador() == jugadorId) {
+                jugador = j;
+                break;
+            }
+        }
+        
+        if (jugador == null) {
+            System.err.println("[ERROR] Jugador no encontrado: " + jugadorId);
+            return;
+        }
+        
+        // Buscar la ficha
+        Ficha ficha = null;
+        for (Ficha f : jugador.getFichas()) {
+            if (f.getIdFicha() == fichaId) {
+                ficha = f;
+                break;
+            }
+        }
+        
+        if (ficha == null) {
+            System.err.println("[ERROR] Ficha no encontrada: " + fichaId);
+            return;
+        }
+        
+        // Aplicar el movimiento SIN enviarlo por red (evitar bucle)
+        moverFicha(ficha, pasos, false);
+        
+        System.out.println("[RED] Movimiento aplicado exitosamente");
     }
     
     /**
@@ -190,21 +251,25 @@ public class ControladorPartida {
                 partida.reiniciarContadorSeis();
                 partida.cambiarTurno();
                 
-                // NUEVO: Notificar cambio de turno por red
+                // Notificar cambio de turno por red
                 if (controladorRed != null) {
                     controladorRed.notificarCambioTurno(partida.getTurnoActual());
                 }
             } else {
                 vista.mostrarMensaje("¡Sacaste 6! Tienes un turno extra.");
-                vista.mostrarMensaje("Presiona ENTER para continuar");
-                scanner.nextLine();
-                iniciarTurno();
+                
+                // Si hay red, solo continuar si es el jugador local
+                if (controladorRed == null || esTurnoLocal()) {
+                    vista.mostrarMensaje("Presiona ENTER para continuar");
+                    scanner.nextLine();
+                    iniciarTurno();
+                }
             }
         } else {
             partida.reiniciarContadorSeis();
             partida.cambiarTurno();
             
-            // NUEVO: Notificar cambio de turno por red
+            // Notificar cambio de turno por red
             if (controladorRed != null) {
                 controladorRed.notificarCambioTurno(partida.getTurnoActual());
             }
@@ -212,7 +277,24 @@ public class ControladorPartida {
     }
     
     /**
-     * Verifica si algún jugador ganó la partida
+     * Aplica cambio de turno recibido desde la red
+     */
+    public void aplicarCambioTurnoRemoto(int jugadorId) {
+        System.out.println("\n[RED] Cambio de turno al Jugador " + jugadorId);
+        
+        // Usar el metodo de Partida para cambiar el turno correctamente
+        partida.setTurnoActual(jugadorId);
+        
+        // Mostrar notificación
+        if (jugadorId == jugadorLocalId) {
+            System.out.println("\n╔════════════════════════════════════╗");
+            System.out.println("║       ¡ES TU TURNO!                ║");
+            System.out.println("╚════════════════════════════════════╝");
+        }
+    }
+    
+    /**
+     * Verifica si algún jugador gano la partida
      */
     public boolean verificarFinPartida() {
         for (Jugador j : partida.getJugadores()) {

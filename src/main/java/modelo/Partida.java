@@ -1,5 +1,5 @@
 /**
- * Controla el flujo general de la partida
+ * Controla el flujo general de la partida - VERSIÓN CORREGIDA
  * Gestiona jugadores, turnos y estado del juego
  */
 package modelo;
@@ -50,12 +50,39 @@ public class Partida {
      * Reinicia el contador de 6 seguidos
      */
     public void cambiarTurno() {
-        turnoActual.setTurno(false);
+        if (turnoActual != null) {
+            turnoActual.setTurno(false);
+        }
+        
         int indiceActual = jugadores.indexOf(turnoActual);
         int siguienteIndice = (indiceActual + 1) % jugadores.size();
         turnoActual = jugadores.get(siguienteIndice);
         turnoActual.setTurno(true);
         contadorSeis = 0;
+        
+        System.out.println("[JUEGO] Turno cambiado al Jugador " + turnoActual.getIdJugador() + 
+                         " (" + turnoActual.getNombre() + ")");
+    }
+    
+    /**
+     * Establece manualmente el turno a un jugador específico (para sincronización de red)
+     */
+    public void setTurnoActual(int jugadorId) {
+        // Desactivar turno de todos los jugadores primero
+        for (Jugador j : jugadores) {
+            j.setTurno(false);
+        }
+        
+        // Activar turno del jugador específico
+        for (Jugador j : jugadores) {
+            if (j.getIdJugador() == jugadorId) {
+                this.turnoActual = j;
+                j.setTurno(true);
+                System.out.println("[JUEGO] Turno establecido al Jugador " + jugadorId + 
+                                 " (" + j.getNombre() + ")");
+                break;
+            }
+        }
     }
     
     /**
@@ -85,7 +112,8 @@ public class Partida {
     public void agregarJugador(Jugador jugador) {
         if (jugadores.size() < 4) {
             jugadores.add(jugador);
-            System.out.println("Jugador " + jugador.getNombre() + " agregado");
+            System.out.println("Jugador " + jugador.getNombre() + " agregado (ID: " + 
+                             jugador.getIdJugador() + ")");
         }
     }
     
