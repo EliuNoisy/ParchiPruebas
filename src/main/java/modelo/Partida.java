@@ -1,5 +1,5 @@
 /**
- * Controla el flujo general de la partida - VERSIÓN CORREGIDA
+ * Controla el flujo general de la partida 
  * Gestiona jugadores, turnos y estado del juego
  */
 package modelo;

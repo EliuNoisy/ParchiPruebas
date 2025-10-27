@@ -1,6 +1,6 @@
 /**
- * Clase principal del juego Parchís Star - VERSIÓN TOTALMENTE CORREGIDA
- * Sincronización completa y flujo sin errores
+ * Clase principal del juego Parchis Star 
+ * Sincronizacion completa y flujo sin errores
  */
 package com.mycompany.parchis;
 
@@ -22,8 +22,8 @@ public class Parchis {
         // Pantalla de bienvenida
         System.out.println("\n============================================================");
         System.out.println("|                                                          |");
-        System.out.println("|            ⭐ PARCHIS STAR ⭐                            |");
-        System.out.println("|            Versión Red P2P                               |");
+        System.out.println("|                 PARCHIS STAR                             |");
+        System.out.println("|                                                          |");
         System.out.println("|                                                          |");
         System.out.println("============================================================");
         
@@ -32,7 +32,7 @@ public class Parchis {
         System.out.println("1. Juego Local (sin red)");
         System.out.println("2. Crear Partida P2P (Jugador 1 - Amarillo)");
         System.out.println("3. Unirse a Partida P2P (Jugador 2 - Azul)");
-        System.out.print("Selecciona una opción: ");
+        System.out.print("Selecciona una opcion: ");
         
         int modoJuego = scanner.nextInt();
         scanner.nextLine();
@@ -65,33 +65,33 @@ public class Parchis {
             
             try {
                 if (modoJuego == 2) {
-                    // ========== ANFITRIÓN (Jugador 1) ==========
-                    System.out.println("\n╔════════════════════════════════════════════════╗");
-                    System.out.println("║  MODO: ANFITRIÓN - Creando partida...         ║");
-                    System.out.println("╚════════════════════════════════════════════════╝");
+                    // ========== ANFITRION (Jugador 1) ==========
+                    System.out.println("\n================================================");
+                    System.out.println("  MODO: ANFITRION - Creando partida...");
+                    System.out.println("================================================");
                     
                     controladorRed.iniciarComoAnfitrion();
-                    System.out.println("\n✓ Servidor creado en puerto " + puertoLocal);
-                    System.out.println("\n┌─────────────────────────────────────────────┐");
-                    System.out.println("│ ESPERANDO AL JUGADOR 2...                  │");
-                    System.out.println("│                                             │");
-                    System.out.println("│ El otro jugador debe conectarse a:         │");
-                    System.out.println("│   IP: localhost                             │");
-                    System.out.println("│   (o tu IP: " + java.net.InetAddress.getLocalHost().getHostAddress() + ")                 │");
-                    System.out.println("│   Puerto: " + puertoLocal + "                              │");
-                    System.out.println("└─────────────────────────────────────────────┘");
+                    System.out.println("\nServidor creado en puerto " + puertoLocal);
+                    System.out.println("\n------------------------------------------------");
+                    System.out.println(" ESPERANDO AL JUGADOR 2...");
+                    System.out.println(" ");
+                    System.out.println(" El otro jugador debe conectarse a:");
+                    System.out.println("   IP: localhost");
+                    System.out.println("   (o tu IP: " + java.net.InetAddress.getLocalHost().getHostAddress() + ")");
+                    System.out.println("   Puerto: " + puertoLocal);
+                    System.out.println("------------------------------------------------");
                     
                     // Configurar Jugador 1 (yo mismo)
                     Jugador jugador1 = new Jugador(1, nombreLocal, "Amarillo");
                     partida.agregarJugador(jugador1);
                     
-                    // Esperar conexión y nombre del Jugador 2
-                    System.out.println("\n⏳ Esperando que el Jugador 2 se conecte...");
+                    // Esperar conexion y nombre del Jugador 2
+                    System.out.println("\nEsperando que el Jugador 2 se conecte...");
                     String nombreJugador2 = controladorRed.esperarNombreOponente();
                     
                     if (nombreJugador2 == null || nombreJugador2.isEmpty()) {
-                        System.out.println("\n✗ ERROR: No se conectó ningún jugador.");
-                        System.out.println("Asegúrate de que el Jugador 2 use la IP y puerto correctos.");
+                        System.out.println("\nERROR: No se conecto ningun jugador.");
+                        System.out.println("Asegurate de que el Jugador 2 use la IP y puerto correctos.");
                         controladorRed.cerrar();
                         scanner.close();
                         return;
@@ -101,14 +101,14 @@ public class Parchis {
                     Jugador jugador2 = new Jugador(2, nombreJugador2, "Azul");
                     partida.agregarJugador(jugador2);
                     
-                    System.out.println("\n✓✓✓ JUGADOR 2 CONECTADO: " + nombreJugador2 + " ✓✓✓");
-                    System.out.println("\n════════════════════════════════════════════════");
+                    System.out.println("\nJUGADOR 2 CONECTADO: " + nombreJugador2);
+                    System.out.println("\n================================================");
                     System.out.println("  Jugadores registrados:");
-                    System.out.println("  1. " + nombreLocal + " (Amarillo) - TÚ");
+                    System.out.println("  1. " + nombreLocal + " (Amarillo) - TU");
                     System.out.println("  2. " + nombreJugador2 + " (Azul)");
-                    System.out.println("════════════════════════════════════════════════");
+                    System.out.println("================================================");
                     
-                    System.out.println("\n>>> Presiona ENTER cuando ambos estén listos para iniciar <<<");
+                    System.out.println("\n>>> Presiona ENTER cuando ambos esten listos para iniciar <<<");
                     scanner.nextLine();
                     
                     // Notificar al cliente que puede iniciar
@@ -116,11 +116,11 @@ public class Parchis {
                     
                 } else {
                     // ========== CLIENTE (Jugador 2) ==========
-                    System.out.println("\n╔════════════════════════════════════════════════╗");
-                    System.out.println("║  MODO: CLIENTE - Uniéndose a partida...       ║");
-                    System.out.println("╚════════════════════════════════════════════════╝");
+                    System.out.println("\n================================================");
+                    System.out.println("  MODO: CLIENTE - Uniendose a partida...");
+                    System.out.println("================================================");
                     
-                    System.out.print("\nIP del Jugador 1 (anfitrión) [localhost]: ");
+                    System.out.print("\nIP del Jugador 1 (anfitrion) [localhost]: ");
                     String ipAnfitrion = scanner.nextLine().trim();
                     if (ipAnfitrion.isEmpty()) {
                         ipAnfitrion = "localhost";
@@ -130,26 +130,26 @@ public class Parchis {
                     int puertoAnfitrion = scanner.nextInt();
                     scanner.nextLine();
                     
-                    System.out.println("\n⏳ Conectando al anfitrión...");
+                    System.out.println("\nConectando al anfitrion...");
                     
                     if (!controladorRed.unirseAPartida(ipAnfitrion, puertoAnfitrion)) {
-                        System.out.println("\n✗ ERROR: No se pudo conectar al anfitrión.");
+                        System.out.println("\nERROR: No se pudo conectar al anfitrion.");
                         System.out.println("Verifica que:");
                         System.out.println("  - El Jugador 1 haya creado la partida");
                         System.out.println("  - La IP y puerto sean correctos");
-                        System.out.println("  - Ambos estén en la misma red");
+                        System.out.println("  - Ambos esten en la misma red");
                         scanner.close();
                         return;
                     }
                     
-                    System.out.println("\n✓ Conectado al servidor!");
-                    System.out.println("⏳ Esperando identificación del anfitrión...");
+                    System.out.println("\nConectado al servidor!");
+                    System.out.println("Esperando identificacion del anfitrion...");
                     
                     // Esperar nombre del Jugador 1
                     String nombreJugador1 = controladorRed.esperarNombreOponente();
                     
                     if (nombreJugador1 == null || nombreJugador1.isEmpty()) {
-                        System.out.println("\n✗ ERROR: No se recibió información del anfitrión.");
+                        System.out.println("\nERROR: No se recibio informacion del anfitrion.");
                         controladorRed.cerrar();
                         scanner.close();
                         return;
@@ -162,23 +162,23 @@ public class Parchis {
                     Jugador jugador2 = new Jugador(2, nombreLocal, "Azul");
                     partida.agregarJugador(jugador2);
                     
-                    System.out.println("\n✓✓✓ CONEXIÓN EXITOSA ✓✓✓");
-                    System.out.println("\n════════════════════════════════════════════════");
+                    System.out.println("\nCONEXION EXITOSA");
+                    System.out.println("\n================================================");
                     System.out.println("  Jugadores registrados:");
                     System.out.println("  1. " + nombreJugador1 + " (Amarillo)");
-                    System.out.println("  2. " + nombreLocal + " (Azul) - TÚ");
-                    System.out.println("════════════════════════════════════════════════");
+                    System.out.println("  2. " + nombreLocal + " (Azul) - TU");
+                    System.out.println("================================================");
                     
-                    System.out.println("\n⏳ Esperando que el anfitrión inicie la partida...");
+                    System.out.println("\nEsperando que el anfitrion inicie la partida...");
                     
-                    // Esperar señal de inicio del anfitrión
+                    // Esperar señal de inicio del anfitrion
                     controladorRed.esperarInicioPartida();
                     
-                    System.out.println("✓ ¡La partida está iniciando!");
+                    System.out.println("La partida esta iniciando!");
                 }
                 
             } catch (Exception e) {
-                System.err.println("\n✗ ERROR en configuración de red: " + e.getMessage());
+                System.err.println("\nERROR en configuracion de red: " + e.getMessage());
                 e.printStackTrace();
                 if (controladorRed != null) {
                     controladorRed.cerrar();
@@ -189,7 +189,7 @@ public class Parchis {
             
         } else {
             // ===== MODO LOCAL =====
-            System.out.println("\n=== CONFIGURACIÓN DE JUGADORES ===\n");
+            System.out.println("\n=== CONFIGURACION DE JUGADORES ===\n");
             
             System.out.print("Ingresa el nombre del Jugador 1 (Amarillo): ");
             String nombre1 = scanner.nextLine();
@@ -211,12 +211,12 @@ public class Parchis {
         // Vincular controlador de red
         if (controladorRed != null) {
             controlador.setControladorRed(controladorRed);
-            System.out.println("\n✓ Red P2P activada - Eres el Jugador " + jugadorLocalId);
+            System.out.println("\nRed P2P activada - Eres el Jugador " + jugadorLocalId);
         }
         
-        System.out.println("\n╔════════════════════════════════════════════════╗");
-        System.out.println("║         ¡PARTIDA INICIADA!                     ║");
-        System.out.println("╚════════════════════════════════════════════════╝");
+        System.out.println("\n================================================");
+        System.out.println("            PARTIDA INICIADA!");
+        System.out.println("================================================");
         System.out.println("\nPresiona ENTER para comenzar...");
         scanner.nextLine();
         
@@ -238,12 +238,12 @@ public class Parchis {
                 }
                 
                 turnosJugados++;
-                mostrarTableroEspera = true; // Resetear para próxima espera
+                mostrarTableroEspera = true; // Resetear para proxima espera
             } else {
                 // Esperar turno del otro jugador
                 if (mostrarTableroEspera) {
                     vista.mostrarTablero(partida);
-                    System.out.println("\n⏳ Esperando movimiento del oponente...");
+                    System.out.println("\nEsperando movimiento del oponente...");
                     mostrarTableroEspera = false; // Solo mostrar una vez
                 }
                 
@@ -255,21 +255,21 @@ public class Parchis {
             }
         }
         
-        // ===== FINALIZACIÓN =====
+        // ===== FINALIZACION =====
         if (turnosJugados >= MAX_TURNOS) {
-            System.out.println("\n=== JUEGO FINALIZADO (Límite de turnos) ===");
+            System.out.println("\n=== JUEGO FINALIZADO (Limite de turnos) ===");
             partida.finalizarPartida();
         }
         
         // Cerrar conexiones
         if (controladorRed != null) {
             controladorRed.cerrar();
-            System.out.println("\n✓ Conexiones de red cerradas");
+            System.out.println("\nConexiones de red cerradas");
         }
         
         scanner.close();
-        System.out.println("\n════════════════════════════════════════════════");
-        System.out.println("   Gracias por jugar Parchís Star");
-        System.out.println("════════════════════════════════════════════════\n");
+        System.out.println("\n================================================");
+        System.out.println("   Gracias por jugar Parchis Star");
+        System.out.println("================================================\n");
     }
 }

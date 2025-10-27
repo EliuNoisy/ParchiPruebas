@@ -15,7 +15,7 @@ public class PruebaP2P {
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
         
-        System.out.println("=== PRUEBA DE RED P2P PARA PARCHÍS ===");
+        System.out.println("=== PRUEBA DE RED P2P PARA PARCHIS ===");
         System.out.print("Ingresa tu nombre: ");
         String nombre = scanner.nextLine();
         
@@ -59,13 +59,13 @@ public class PruebaP2P {
         // Menú de opciones
         boolean ejecutando = true;
         while (ejecutando) {
-            System.out.println("\n--- MENÚ ---");
+            System.out.println("\n--- MENU ---");
             System.out.println("1. Conectar a otro peer");
             System.out.println("2. Enviar mensaje a todos");
             System.out.println("3. Enviar movimiento de prueba");
             System.out.println("4. Ver peers conectados");
             System.out.println("5. Salir");
-            System.out.print("Opción: ");
+            System.out.print("Opcion: ");
             
             int opcion = scanner.nextInt();
             scanner.nextLine(); // Consumir salto de línea
@@ -111,13 +111,13 @@ public class PruebaP2P {
                     break;
                     
                 default:
-                    System.out.println("Opción inválida");
+                    System.out.println("Opcion invalida");
             }
         }
         
         System.out.println("Cerrando conexiones...");
         red.cerrar();
         scanner.close();
-        System.out.println("¡Adiós!");
+        System.out.println("¡Adios!");
     }
 }

@@ -4,7 +4,7 @@ import java.io.*;
 import java.net.*;
 
 /**
- * Representa una conexión con otro jugador (peer)
+ * Representa una conexin con otro jugador (peer)
  */
 public class ConexionPeer extends Thread {
     private Socket socket;
@@ -48,7 +48,7 @@ public class ConexionPeer extends Thread {
                 gestor.alRecibirMensaje(mensaje, this);
                 
             } catch (EOFException e) {
-                System.out.println("[RED] Conexión cerrada por el peer");
+                System.out.println("[RED] Conexion cerrada por el peer");
                 break;
             } catch (IOException | ClassNotFoundException e) {
                 if (conectado) {
@@ -92,7 +92,7 @@ public class ConexionPeer extends Thread {
             if (salida != null) salida.close();
             if (socket != null && !socket.isClosed()) socket.close();
         } catch (IOException e) {
-            System.err.println("[RED] Error cerrando conexión: " + e.getMessage());
+            System.err.println("[RED] Error cerrando conexion: " + e.getMessage());
         }
     }
     

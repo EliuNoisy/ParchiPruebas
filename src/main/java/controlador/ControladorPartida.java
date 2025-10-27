@@ -1,6 +1,8 @@
+
 /**
- * Capa de control del patrón MVC - VERSIÓN OPTIMIZADA
- * Coordina la interacción entre modelo, vista y red
+ * Capa de control del patron MVC 
+ * Coordina la interaccion entre modelo, vista y red
+ *  Aplica premios de casillas
  */
 package controlador;
 
@@ -16,6 +18,7 @@ public class ControladorPartida {
     private Ficha ultimaFichaMovida;
     private ControladorRed controladorRed;
     private int jugadorLocalId;
+    private int casillasPremio; // Acumula premios por comer o llegar a meta
     
     public ControladorPartida(Partida partida, PantallaPartida vista, Scanner scanner, int jugadorLocalId) {
         this.partida = partida;
@@ -24,6 +27,7 @@ public class ControladorPartida {
         this.ultimaFichaMovida = null;
         this.controladorRed = null;
         this.jugadorLocalId = jugadorLocalId;
+        this.casillasPremio = 0;
     }
     
     public void setControladorRed(ControladorRed controladorRed) {
@@ -50,9 +54,48 @@ public class ControladorPartida {
             System.out.println("\n*** ES TU TURNO ***");
         }
         
+        // Verificar si tiene premios acumulados
+        if (casillasPremio > 0) {
+            vista.mostrarMensaje("Tienes " + casillasPremio + " casillas de premio para usar!");
+            aplicarPremio(jugadorActual);
+        } else {
+            vista.mostrarMensaje("Presiona ENTER para lanzar el dado");
+            scanner.nextLine();
+            lanzarDado();
+        }
+    }
+    
+    /**
+     * Aplica el premio de casillas acumuladas
+     */
+    private void aplicarPremio(Jugador jugador) {
+        List<Ficha> fichasDisponibles = jugador.getFichasEnJuego();
+        
+        if (fichasDisponibles.isEmpty()) {
+            vista.mostrarMensaje("No tienes fichas en juego para usar el premio. Se pierde.");
+            casillasPremio = 0;
+            vista.mostrarMensaje("Presiona ENTER para lanzar el dado");
+            scanner.nextLine();
+            lanzarDado();
+            return;
+        }
+        
+        vista.mostrarMensaje("Selecciona una ficha para avanzar " + casillasPremio + " casillas:");
+        for (int i = 0; i < fichasDisponibles.size(); i++) {
+            Ficha f = fichasDisponibles.get(i);
+            System.out.println((i + 1) + ". Ficha " + f.getIdFicha() + 
+                             " - Posicion actual: " + f.getPosicion());
+        }
+        
+        int seleccion = solicitarSeleccionFicha(fichasDisponibles.size());
+        Ficha fichaSeleccionada = fichasDisponibles.get(seleccion - 1);
+        
+        moverFicha(fichaSeleccionada, casillasPremio, true);
+        casillasPremio = 0; // Resetear premio usado
+        
+        // Continuar con tirada normal
         vista.mostrarMensaje("Presiona ENTER para lanzar el dado");
         scanner.nextLine();
-        
         lanzarDado();
     }
     
@@ -79,8 +122,8 @@ public class ControladorPartida {
         vista.mostrarMensaje("Fichas disponibles para mover:");
         for (int i = 0; i < fichasDisponibles.size(); i++) {
             Ficha f = fichasDisponibles.get(i);
-            String estado = f.isEnCasa() ? "En casa (saldrá a casilla de salida)" : 
-                           "Posición actual: " + f.getPosicion();
+            String estado = f.isEnCasa() ? "En casa (saldra a casilla de salida)" : 
+                           "Posicion actual: " + f.getPosicion();
             System.out.println((i + 1) + ". Ficha " + f.getIdFicha() + " - " + estado);
         }
         
@@ -99,10 +142,10 @@ public class ControladorPartida {
                 seleccion = scanner.nextInt();
                 scanner.nextLine();
                 if (seleccion < 1 || seleccion > maxOpciones) {
-                    System.out.println("Opción inválida. Intenta de nuevo.");
+                    System.out.println("Opcion invalida. Intenta de nuevo.");
                 }
             } catch (Exception e) {
-                System.out.println("Entrada inválida. Ingresa un número.");
+                System.out.println("Entrada invalida. Ingresa un numero.");
                 scanner.nextLine();
             }
         }
@@ -126,7 +169,7 @@ public class ControladorPartida {
             Casilla casillaSalida = tablero.getCasilla(posicionSalida);
             casillaSalida.agregarFicha(ficha);
             
-            vista.mostrarMensaje("Ficha sacada de casa a la posición " + posicionSalida);
+            vista.mostrarMensaje("Ficha sacada de casa a la posicion " + posicionSalida);
             ultimaFichaMovida = ficha;
             
         } else if (!ficha.isEnCasa()) {
@@ -141,7 +184,11 @@ public class ControladorPartida {
             controladorRed.enviarMovimiento(jugadorActual, ficha, pasos);
         }
         
-        aplicarReglasDelJuego(ficha);
+        // Aplicar reglas y obtener premio
+        int premio = aplicarReglasDelJuego(ficha);
+        if (premio > 0) {
+            casillasPremio += premio; // Acumular premio
+        }
     }
     
     /**
@@ -190,12 +237,15 @@ public class ControladorPartida {
         }
     }
     
-    public void aplicarReglasDelJuego(Ficha ficha) {
+    /**
+     * Aplica reglas y retorna casillas de premio
+     */
+    public int aplicarReglasDelJuego(Ficha ficha) {
         ReglasJuego reglas = partida.getReglas();
         Tablero tablero = partida.getTablero();
         Jugador jugadorActual = partida.getTurnoActual();
         
-        reglas.aplicar(jugadorActual, ficha, tablero);
+        return reglas.aplicar(jugadorActual, ficha, tablero);
     }
     
     private void aplicarReglasDelTurno(int valorDado) {
@@ -205,9 +255,9 @@ public class ControladorPartida {
         if (reglas.verificarTurnoExtra(valorDado)) {
             partida.incrementarContadorSeis();
             
-            // Tres 6 seguidos - penalización
+            // Tres 6 seguidos - penalizacion
             if (reglas.verificarTresSeisSeguidos(partida.getContadorSeis())) {
-                vista.mostrarMensaje("¡TRES 6 SEGUIDOS! La última ficha movida regresa a casa.");
+                vista.mostrarMensaje("TRES 6 SEGUIDOS! La ultima ficha movida regresa a casa.");
                 if (ultimaFichaMovida != null && !ultimaFichaMovida.isEnMeta()) {
                     ultimaFichaMovida.regresarACasa();
                     Tablero tablero = partida.getTablero();
@@ -217,13 +267,14 @@ public class ControladorPartida {
                     }
                 }
                 partida.reiniciarContadorSeis();
+                casillasPremio = 0; // Perder premios acumulados
                 partida.cambiarTurno();
                 
                 if (controladorRed != null) {
                     controladorRed.notificarCambioTurno(partida.getTurnoActual());
                 }
             } else {
-                vista.mostrarMensaje("¡Sacaste 6! Tienes un turno extra.");
+                vista.mostrarMensaje("Sacaste 6! Tienes un turno extra.");
                 
                 if (controladorRed == null || esTurnoLocal()) {
                     vista.mostrarMensaje("Presiona ENTER para continuar");
@@ -247,9 +298,9 @@ public class ControladorPartida {
     public void aplicarCambioTurnoRemoto(int jugadorId) {
         partida.setTurnoActual(jugadorId);
         
-        // Mostrar notificación solo si es mi turno
+        // Mostrar notificacion solo si es mi turno
         if (jugadorId == jugadorLocalId) {
-            System.out.println("\n>>> ¡Tu turno! Presiona ENTER en el ciclo del juego <<<");
+            System.out.println("\n>>> Tu turno! Presiona ENTER en el ciclo del juego <<<");
         }
     }
     
@@ -262,7 +313,7 @@ public class ControladorPartida {
                 }
             }
             if (fichasEnMeta == 4) {
-                vista.mostrarMensaje("¡" + j.getNombre().toUpperCase() + " HA GANADO!");
+                vista.mostrarMensaje(j.getNombre().toUpperCase() + " HA GANADO!");
                 partida.finalizarPartida();
                 return true;
             }

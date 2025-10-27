@@ -1,6 +1,7 @@
 /**
  * Define y aplica todas las reglas del Parchis Star
  * Incluye: turno extra, comer fichas, barreras, meta, penalizaciones
+ * Premios realmente aplicados
  */
 package modelo;
 
@@ -64,22 +65,25 @@ public class ReglasJuego {
      * @param jugador Jugador que realizo el movimiento
      * @param ficha Ficha que se movio
      * @param tablero Tablero del juego
+     * @return Numero de casillas de premio (0, 10 o 20)
      */
-    public void aplicar(Jugador jugador, Ficha ficha, Tablero tablero) {
+    public int aplicar(Jugador jugador, Ficha ficha, Tablero tablero) {
+        int premioCasillas = 0;
         int posicion = ficha.getPosicion();
         Casilla casilla = tablero.getCasilla(posicion);
         
-        if (casilla == null || ficha.isEnMeta()) return;
+        if (casilla == null || ficha.isEnMeta()) return 0;
         
         // REGLA: Comer fichas en casillas normales
         if (!casilla.esSegura()) {
             List<Ficha> fichasEnCasilla = new ArrayList<>(casilla.getFichas());
             for (Ficha otraFicha : fichasEnCasilla) {
                 if (!otraFicha.equals(ficha) && !otraFicha.getColor().equals(ficha.getColor())) {
-                    System.out.println("\nFICHA COMIDA " + jugador.getNombre() + 
+                    System.out.println("\nFICHA COMIDA! " + jugador.getNombre() + 
                                      " come ficha " + otraFicha.getColor());
                     otraFicha.regresarACasa();
                     casilla.removerFicha(otraFicha);
+                    premioCasillas = 20; // PREMIO: 20 casillas
                     System.out.println("PREMIO: +20 casillas para avanzar con otra ficha");
                 }
             }
@@ -95,8 +99,11 @@ public class ReglasJuego {
             if (!ficha.isEnMeta()) {
                 ficha.llegarMeta();
                 casilla.removerFicha(ficha);
-                System.out.println("FICHA EN META +10 casillas de premio");
+                premioCasillas = 10; // PREMIO: 10 casillas
+                System.out.println("FICHA EN META! +10 casillas de premio");
             }
         }
+        
+        return premioCasillas;
     }
 }

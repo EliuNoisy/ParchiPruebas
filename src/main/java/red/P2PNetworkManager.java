@@ -6,8 +6,7 @@ import java.util.*;
 import java.util.concurrent.*;
 
 /**
- * Gestor de red P2P para el juego de Parchís
- * VERSIÓN CORREGIDA CON SINCRONIZACIÓN DE INICIO
+ * Gestor de red P2P para el juego de Parchis
  */
 public class P2PNetworkManager {
     private String nombreJugador;
@@ -40,11 +39,11 @@ public class P2PNetworkManager {
             while (estaActivo) {
                 try {
                     Socket socketCliente = servidorSocket.accept();
-                    System.out.println("[RED] Nueva conexión desde: " + socketCliente.getInetAddress());
+                    System.out.println("[RED] Nueva conexion desde: " + socketCliente.getInetAddress());
                     manejarNuevaConexion(socketCliente);
                 } catch (IOException e) {
                     if (estaActivo) {
-                        System.err.println("[RED] Error aceptando conexión: " + e.getMessage());
+                        System.err.println("[RED] Error aceptando conexion: " + e.getMessage());
                     }
                 }
             }
@@ -63,7 +62,7 @@ public class P2PNetworkManager {
             peer.enviarMensaje(new MensajeJuego(
                 MensajeJuego.TipoMensaje.SALUDO,
                 nombreJugador,
-                "Conexión establecida"
+                "Conexion establecida"
             ));
             
             peers.add(peer);
