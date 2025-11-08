@@ -11,6 +11,7 @@ import java.net.InetAddress;
 
 /**
  * Clase principal del juego Parchis Star 
+ * El primero en ejecutar es ANFITRION
  */
 public class Parchis {
     
@@ -53,93 +54,44 @@ public class Parchis {
             
             System.out.println("\n================================================");
             System.out.println("  Buscando otros jugadores en la red local...");
-            System.out.println("  Tiempo de espera: 10 segundos");
+            System.out.println("  Tiempo de espera: 3 segundos");
             System.out.println("================================================");
             
-            // Buscar jugadores durante 10 segundos
+            // Buscar jugadores durante SOLO 3 segundos
             List<DescubrimientoRed.JugadorEncontrado> jugadoresEncontrados = 
-                descubrimiento.buscarJugadores(10);
+                descubrimiento.buscarJugadores(3);
             
             // Dar tiempo para recibir respuestas finales
-            try { Thread.sleep(1000); } catch (InterruptedException e) {}
+            try { Thread.sleep(500); } catch (InterruptedException e) {}
             
-            // Detener modo respuesta para evitar spam
+            // Detener modo respuesta
             descubrimiento.detenerModoRespuesta();
             
             if (jugadoresEncontrados.isEmpty()) {
+                // =============================================
+                // NO ENCONTRO A NADIE = ANFITRION
+                // =============================================
                 System.out.println("\n================================================");
                 System.out.println("  No se encontraron otros jugadores");
+                System.out.println("  >>> SERAS EL ANFITRION <<<");
+                System.out.println("  (Jugador 1 - Amarillo)");
                 System.out.println("================================================");
-                System.out.println("\nAsegurate de que:");
-                System.out.println("  1. Ambas computadoras esten en la misma red WiFi/LAN");
-                System.out.println("  2. El otro jugador haya iniciado el juego");
-                System.out.println("  3. El firewall permita las conexiones\n");
-                scanner.close();
-                return;
-            }
-            
-            // ========================================
-            // CONEXION AUTOMATICA AL PRIMER JUGADOR
-            // ========================================
-            DescubrimientoRed.JugadorEncontrado oponente = jugadoresEncontrados.get(0);
-            
-            System.out.println("\n================================================");
-            System.out.println("  OPONENTE DETECTADO AUTOMATICAMENTE!");
-            System.out.println("================================================");
-            System.out.println("  Oponente: " + oponente.nombre);
-            System.out.println("  IP: " + oponente.ip + ":" + oponente.puerto);
-            
-            if (jugadoresEncontrados.size() > 1) {
-                System.out.println("\n  [i] Se encontraron " + jugadoresEncontrados.size() + 
-                                 " jugadores, conectando al primero");
-            }
-            
-            System.out.println("\n  Conectando...");
-            System.out.println("================================================\n");
-            
-            // Determinar rol usando hash de nombres (mas confiable)
-            int miHash = nombreLocal.hashCode();
-            int oponenteHash = oponente.nombre.hashCode();
-            boolean soyAnfitrion = miHash < oponenteHash;
-            
-            // Si los hash son iguales, usar puerto
-            if (miHash == oponenteHash) {
-                soyAnfitrion = puertoBase < oponente.puerto;
-            }
-            
-            if (soyAnfitrion) {
+                System.out.println("\nEsperando que otro jugador se conecte...");
+                
+                boolean soyAnfitrion = true;
                 jugadorLocalId = 1;
-                System.out.println("\n[CONEXION] Seras el ANFITRION (Jugador 1 - Amarillo)");
-                System.out.println("[INFO] Tu puerto: " + puertoBase);
-            } else {
-                jugadorLocalId = 2;
-                System.out.println("\n[CONEXION] Seras el CLIENTE (Jugador 2 - Azul)");
-                System.out.println("[INFO] Puerto del anfitrion: " + oponente.puerto);
-            }
-            
-            String miColor = (jugadorLocalId == 1) ? "Amarillo" : "Azul";
-            String oponenteColor = (jugadorLocalId == 1) ? "Azul" : "Amarillo";
-            
-            System.out.println("\n================================================");
-            System.out.println("  OPONENTE SELECCIONADO!");
-            System.out.println("================================================");
-            System.out.println("  Tu: " + nombreLocal + " (" + miColor + ")");
-            System.out.println("  VS: " + oponente.nombre + " (" + oponenteColor + ")");
-            System.out.println("================================================\n");
-            
-            controladorRed = new ControladorRed(nombreLocal, puertoBase, 
-                                               partida.getTablero(), jugadorLocalId);
-            
-            try {
-                if (soyAnfitrion) {
-                    System.out.println("[ANFITRION] Iniciando servidor en puerto " + puertoBase + "...");
+                
+                controladorRed = new ControladorRed(nombreLocal, puertoBase, 
+                                                   partida.getTablero(), jugadorLocalId);
+                
+                try {
+                    System.out.println("\n[ANFITRION] Iniciando servidor en puerto " + puertoBase + "...");
                     controladorRed.iniciarComoAnfitrion();
                     
                     Jugador jugador1 = new Jugador(1, nombreLocal, "Amarillo");
                     partida.agregarJugador(jugador1);
                     
-                    System.out.println("[ANFITRION] Servidor listo. Esperando conexion de " + 
-                                     oponente.nombre + "...");
+                    System.out.println("[ANFITRION] Servidor listo. Esperando conexion...");
                     String nombreJugador2 = controladorRed.esperarNombreOponente();
                     
                     if (nombreJugador2 == null || nombreJugador2.isEmpty()) {
@@ -164,18 +116,49 @@ public class Parchis {
                     
                     controladorRed.enviarInicioPartida();
                     
-                } else {
+                } catch (Exception e) {
+                    System.err.println("\nERROR en la conexion: " + e.getMessage());
+                    e.printStackTrace();
+                    if (controladorRed != null) {
+                        controladorRed.cerrar();
+                    }
+                    scanner.close();
+                    return;
+                }
+                
+            } else {
+                // =============================================
+                // ENCONTRO A ALGUIEN = CLIENTE
+                // =============================================
+                DescubrimientoRed.JugadorEncontrado oponente = jugadoresEncontrados.get(0);
+                
+                System.out.println("\n================================================");
+                System.out.println("  OPONENTE DETECTADO!");
+                System.out.println("  >>> SERAS EL CLIENTE <<<");
+                System.out.println("  (Jugador 2 - Azul)");
+                System.out.println("================================================");
+                System.out.println("  Anfitrion: " + oponente.nombre);
+                System.out.println("  IP: " + oponente.ip + ":" + oponente.puerto);
+                System.out.println("================================================\n");
+                
+                boolean soyAnfitrion = false;
+                jugadorLocalId = 2;
+                
+                controladorRed = new ControladorRed(nombreLocal, puertoBase, 
+                                                   partida.getTablero(), jugadorLocalId);
+                
+                try {
                     System.out.println("[CLIENTE] Iniciando servidor local en puerto " + (puertoBase + 1) + "...");
                     
-                    System.out.println("[CLIENTE] Esperando 5 segundos para que el anfitrion este listo...");
-                    Thread.sleep(5000);
+                    System.out.println("[CLIENTE] Esperando 3 segundos para que el anfitrion este listo...");
+                    Thread.sleep(3000);
                     
                     System.out.println("[CLIENTE] Conectando a " + oponente.ip + ":" + oponente.puerto + "...");
                     
                     if (!controladorRed.unirseAPartida(oponente.ip, oponente.puerto)) {
                         System.out.println("\nERROR: No se pudo conectar al oponente.");
                         System.out.println("Posibles causas:");
-                        System.out.println("  - El anfitrion cerro el programa");
+                        System.out.println("  - El anfitrion aun no inicio servidor");
                         System.out.println("  - Firewall bloqueando conexion");
                         System.out.println("  - Puerto incorrecto");
                         scanner.close();
@@ -209,16 +192,16 @@ public class Parchis {
                     
                     controladorRed.esperarInicioPartida();
                     System.out.println("Iniciando partida!");
+                    
+                } catch (Exception e) {
+                    System.err.println("\nERROR en la conexion: " + e.getMessage());
+                    e.printStackTrace();
+                    if (controladorRed != null) {
+                        controladorRed.cerrar();
+                    }
+                    scanner.close();
+                    return;
                 }
-                
-            } catch (Exception e) {
-                System.err.println("\nERROR en la conexion: " + e.getMessage());
-                e.printStackTrace();
-                if (controladorRed != null) {
-                    controladorRed.cerrar();
-                }
-                scanner.close();
-                return;
             }
             
         } else {
