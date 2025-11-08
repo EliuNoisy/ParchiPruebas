@@ -2,10 +2,12 @@ package controlador;
 
 import modelo.*;
 import red.*;
+import dispatcher.Dispatcher;
+import dispatcher.manejadores.*;
 
 /**
- * Controlador de red con timeouts mejorados
- * VERSION FINAL CORREGIDA
+ * Controlador de red refactorizado con Dispatcher
+ * VERSION CON PATRON DISPATCHER
  */
 public class ControladorRed implements EscuchaRed {
     private P2PNetworkManager gestorRed;
@@ -13,6 +15,7 @@ public class ControladorRed implements EscuchaRed {
     private int jugadorLocalId;
     private boolean esAnfitrion;
     private ControladorPartida controladorPartida;
+    private Dispatcher dispatcher;
     
     private String nombreOponenteRecibido = null;
     private boolean inicioPartidaRecibido = false;
@@ -29,6 +32,26 @@ public class ControladorRed implements EscuchaRed {
         this.tablero = tablero;
         this.jugadorLocalId = jugadorLocalId;
         this.gestorRed.setEscuchaRed(this);
+        
+        inicializarDispatcher();
+    }
+    
+    /**
+     * Inicializa el Dispatcher y registra todos los manejadores
+     */
+    private void inicializarDispatcher() {
+        this.dispatcher = new Dispatcher();
+        
+        dispatcher.registrar(MensajeJuego.TipoMensaje.SALUDO, new ManejadorSaludo(this));
+        dispatcher.registrar(MensajeJuego.TipoMensaje.MOVIMIENTO, new ManejadorMovimiento(this));
+        dispatcher.registrar(MensajeJuego.TipoMensaje.CAMBIO_TURNO, new ManejadorCambioTurno(this));
+        dispatcher.registrar(MensajeJuego.TipoMensaje.TIRADA_DADO, new ManejadorTiradaDado(this));
+        dispatcher.registrar(MensajeJuego.TipoMensaje.CHAT, new ManejadorChat(this));
+        dispatcher.registrar(MensajeJuego.TipoMensaje.INICIO_JUEGO, new ManejadorInicioJuego(this));
+        dispatcher.registrar(MensajeJuego.TipoMensaje.JUGADOR_SALE, new ManejadorJugadorSale());
+        
+        System.out.println("[RED] Dispatcher inicializado con " + 
+                         dispatcher.cantidadManejadores() + " manejadores");
     }
     
     /**
@@ -38,7 +61,7 @@ public class ControladorRed implements EscuchaRed {
     public String esperarNombreOponente() {
         synchronized (lockNombre) {
             try {
-                long tiempoInicio = System.currentTimeMillis(); // ✓ CORREGIDO
+                long tiempoInicio = System.currentTimeMillis();
                 long timeout = 30000;
                 long ultimoMensaje = 0;
                 
@@ -184,38 +207,8 @@ public class ControladorRed implements EscuchaRed {
     public void alRecibirMensaje(MensajeJuego mensaje, ConexionPeer desde) {
         System.out.println("[RED] <- " + mensaje.getTipo() + " de " + mensaje.getEmisor());
         
-        switch (mensaje.getTipo()) {
-            case SALUDO:
-                procesarSaludo(mensaje);
-                break;
-                
-            case INICIO_JUEGO:
-                procesarInicioJuego(mensaje);
-                break;
-                
-            case MOVIMIENTO:
-                procesarMovimiento(mensaje);
-                break;
-                
-            case CAMBIO_TURNO:
-                procesarCambioTurno(mensaje);
-                break;
-                
-            case TIRADA_DADO:
-                procesarTiradaDado(mensaje);
-                break;
-                
-            case CHAT:
-                procesarChat(mensaje);
-                break;
-                
-            case JUGADOR_SALE:
-                System.out.println("[RED] Jugador desconectado: " + mensaje.getEmisor());
-                break;
-                
-            default:
-                System.out.println("[RED] Mensaje no manejado: " + mensaje.getTipo());
-        }
+        // DELEGACION AL DISPATCHER - UNA SOLA LINEA
+        dispatcher.despachar(mensaje, desde);
     }
     
     @Override
@@ -223,10 +216,12 @@ public class ControladorRed implements EscuchaRed {
         System.out.println("[RED] Peer desconectado: " + peer.getNombrePeer());
     }
     
+    // METODOS PUBLICOS PARA QUE LOS MANEJADORES LOS USEN
+    
     /**
      * Procesa mensaje de saludo
      */
-    private void procesarSaludo(MensajeJuego mensaje) {
+    public void procesarSaludo(MensajeJuego mensaje) {
         synchronized (lockNombre) {
             nombreOponenteRecibido = mensaje.getEmisor();
             System.out.println("[RED] Oponente identificado: " + nombreOponenteRecibido);
@@ -237,7 +232,7 @@ public class ControladorRed implements EscuchaRed {
     /**
      * Procesa senal de inicio de juego
      */
-    private void procesarInicioJuego(MensajeJuego mensaje) {
+    public void procesarInicioJuego(MensajeJuego mensaje) {
         synchronized (lockInicio) {
             inicioPartidaRecibido = true;
             System.out.println("[RED] Senal de inicio recibida");
@@ -248,7 +243,7 @@ public class ControladorRed implements EscuchaRed {
     /**
      * Procesa un movimiento recibido
      */
-    private void procesarMovimiento(MensajeJuego mensaje) {
+    public void procesarMovimiento(MensajeJuego mensaje) {
         try {
             String[] partes = mensaje.getContenido().split(",");
             int jugadorId = Integer.parseInt(partes[0].split(":")[1]);
@@ -271,7 +266,7 @@ public class ControladorRed implements EscuchaRed {
     /**
      * Procesa cambio de turno
      */
-    private void procesarCambioTurno(MensajeJuego mensaje) {
+    public void procesarCambioTurno(MensajeJuego mensaje) {
         try {
             int jugadorId = Integer.parseInt(mensaje.getContenido());
             
@@ -294,7 +289,7 @@ public class ControladorRed implements EscuchaRed {
     /**
      * Procesa tirada de dado
      */
-    private void procesarTiradaDado(MensajeJuego mensaje) {
+    public void procesarTiradaDado(MensajeJuego mensaje) {
         try {
             int valor = Integer.parseInt(mensaje.getContenido());
             System.out.println("[RED] " + mensaje.getEmisor() + " lanzo el dado: " + valor);
@@ -306,7 +301,7 @@ public class ControladorRed implements EscuchaRed {
     /**
      * Procesa mensaje de chat
      */
-    private void procesarChat(MensajeJuego mensaje) {
+    public void procesarChat(MensajeJuego mensaje) {
         System.out.println("\n[" + mensaje.getEmisor() + "]: " + mensaje.getContenido());
     }
     
@@ -316,6 +311,9 @@ public class ControladorRed implements EscuchaRed {
     
     public void cerrar() {
         gestorRed.cerrar();
+        if (dispatcher != null) {
+            dispatcher.limpiar();
+        }
     }
     
     public boolean esAnfitrion() {
