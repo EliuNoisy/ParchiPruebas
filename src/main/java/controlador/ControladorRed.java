@@ -7,7 +7,7 @@ import dispatcher.manejadores.*;
 
 /**
  * Controlador de red refactorizado con Dispatcher
- * VERSION CON PATRON DISPATCHER
+
  */
 public class ControladorRed implements EscuchaRed {
     private P2PNetworkManager gestorRed;

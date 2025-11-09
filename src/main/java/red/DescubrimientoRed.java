@@ -6,7 +6,7 @@ import java.util.*;
 import java.util.concurrent.*;
 
 /**
- * Sistema de descubrimiento MEJORADO 
+ * Sistema de descubrimiento 
  * Escanea TODAS las interfaces de red activas
  * Funciona entre diferentes subredes en la misma PC
  */
@@ -32,14 +32,14 @@ public class DescubrimientoRed {
         this.jugadoresEncontrados = new CopyOnWriteArrayList<>();
         this.escuchando = false;
         
-        // FIX: Reducir threads para evitar sobrecarga
+        // Reducir threads para evitar sobrecarga
         int maxThreads = Math.min(Runtime.getRuntime().availableProcessors() * 2, 50);
         this.executor = Executors.newFixedThreadPool(maxThreads);
         this.misIPs = new HashSet<>();
     }
     
     /**
-     * NUEVO: Obtiene TODAS las IPs locales de todas las interfaces
+     *  Obtiene TODAS las IPs locales de todas las interfaces
      */
     private List<InterfazRed> obtenerTodasLasInterfaces() {
         List<InterfazRed> interfaces = new ArrayList<>();
@@ -178,7 +178,7 @@ public class DescubrimientoRed {
     }
     
     /**
-     * MEJORADO: Busca jugadores en TODAS las subredes detectadas
+     * Busca jugadores en TODAS las subredes detectadas
      */
     public List<JugadorEncontrado> buscarJugadores(int tiempoEspera) {
         jugadoresEncontrados.clear();
@@ -294,7 +294,7 @@ public class DescubrimientoRed {
     }
     
     /**
-     * Procesa respuesta PONG - MEJORADO
+     * Procesa respuesta PONG
      */
     private void procesarRespuesta(String mensaje, String ip) {
         try {

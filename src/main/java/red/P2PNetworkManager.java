@@ -31,7 +31,9 @@ public class P2PNetworkManager {
     public void iniciarServidor() throws IOException {
         if (estaActivo) return;
         
-        servidorSocket = new ServerSocket(puerto);
+        servidorSocket = new ServerSocket();
+        servidorSocket.setReuseAddress(true);
+        servidorSocket.bind(new InetSocketAddress(puerto));
         estaActivo = true;
         
         ejecutorServicio.execute(() -> {

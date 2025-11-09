@@ -45,7 +45,7 @@ public class Parchis {
             System.out.print("Ingresa tu nombre: ");
             String nombreLocal = scanner.nextLine();
             
-            int puertoBase = 5000 + (int)(Math.random() * 1000);
+            int puertoBase = 6000 + (int)(Math.random() * 3000);
             
             DescubrimientoRed descubrimiento = new DescubrimientoRed(nombreLocal, puertoBase);
             
@@ -62,16 +62,16 @@ public class Parchis {
             
             System.out.println("\n================================================");
             System.out.println("  INICIANDO ESCANEO MULTI-SUBNET");
-            System.out.println("  Tiempo de busqueda: 15 segundos");
+            System.out.println("  Tiempo de busqueda: 25 segundos");
             System.out.println("  Escaneando TODAS las interfaces de red...");
             System.out.println("================================================\n");
             
-            // Buscar durante 15 segundos
+            // CAMBIO: Buscar durante 25 segundos (antes era 15)
             List<DescubrimientoRed.JugadorEncontrado> jugadoresEncontrados = 
-                descubrimiento.buscarJugadores(15);
+                descubrimiento.buscarJugadores(25);
             
-            // Espera adicional para recibir respuestas finales
-            try { Thread.sleep(1000); } catch (InterruptedException e) {}
+            // CAMBIO: Espera adicional de 3 segundos (antes era 1)
+            try { Thread.sleep(3000); } catch (InterruptedException e) {}
             
             // Detener modo respuesta
             descubrimiento.detenerModoRespuesta();
