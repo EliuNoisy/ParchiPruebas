@@ -107,7 +107,7 @@ public class P2PNetworkManager {
     }
     
     /**
-     * Envía un movimiento de ficha
+     * Envia un movimiento de ficha
      */
     public void enviarMovimiento(int jugadorId, int fichaId, int dado) {
         MensajeJuego mensaje = new MensajeJuego(
@@ -119,7 +119,7 @@ public class P2PNetworkManager {
     }
     
     /**
-     * Envía cambio de turno
+     * Envia cambio de turno
      */
     public void enviarCambioTurno(int proximoJugadorId) {
         MensajeJuego mensaje = new MensajeJuego(
@@ -131,7 +131,7 @@ public class P2PNetworkManager {
     }
     
     /**
-     * Envía mensaje de chat
+     * Envia mensaje de chat
      */
     public void enviarMensajeChat(String texto) {
         MensajeJuego mensaje = new MensajeJuego(
@@ -143,7 +143,7 @@ public class P2PNetworkManager {
     }
     
     /**
-     * Envía tirada de dado
+     * Envia tirada de dado
      */
     public void enviarTiradaDado(int valor) {
         MensajeJuego mensaje = new MensajeJuego(
@@ -155,7 +155,7 @@ public class P2PNetworkManager {
     }
     
     /**
-     * Envía señal de inicio de partida (NUEVO)
+     * Envia señal de inicio de partida 
      */
     public void enviarInicioPartida() {
         MensajeJuego mensaje = new MensajeJuego(

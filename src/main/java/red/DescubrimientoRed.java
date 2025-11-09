@@ -7,7 +7,6 @@ import java.util.concurrent.*;
 
 /**
  * Sistema de descubrimiento 
- * Escanea TODAS las interfaces de red activas
  * Funciona entre diferentes subredes en la misma PC
  */
 public class DescubrimientoRed {

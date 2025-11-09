@@ -9,9 +9,8 @@ import java.util.List;
 import java.util.Scanner;
 
 /**
- * Clase principal del juego Parchis Star - MULTI-SUBNET
+ * Clase principal del juego Parchis Star 
  * Escanea automaticamente todas las interfaces de red
- * Funciona entre diferentes subredes en el mismo router
  */
 public class Parchis {
     
@@ -29,7 +28,7 @@ public class Parchis {
         
         System.out.println("\n=== SELECCION DE MODO ===");
         System.out.println("1. Juego Local (sin red)");
-        System.out.println("2. Juego Online (conexion automatica multi-subnet)");
+        System.out.println("2. Juego Online (conexion automatica )");
         System.out.print("Selecciona una opcion: ");
         
         int modoJuego = scanner.nextInt();
@@ -66,11 +65,11 @@ public class Parchis {
             System.out.println("  Escaneando TODAS las interfaces de red...");
             System.out.println("================================================\n");
             
-            // CAMBIO: Buscar durante 25 segundos (antes era 15)
+            //  Buscar durante 25 segundos 
             List<DescubrimientoRed.JugadorEncontrado> jugadoresEncontrados = 
                 descubrimiento.buscarJugadores(25);
             
-            // CAMBIO: Espera adicional de 3 segundos (antes era 1)
+            // Espera adicional de 3 segundos 
             try { Thread.sleep(3000); } catch (InterruptedException e) {}
             
             // Detener modo respuesta
@@ -332,7 +331,7 @@ public class Parchis {
                 System.out.println("  La partida terminara...");
                 System.out.println("================================================");
                 
-                // FIX: Guardar JSON antes de salir
+                // Guardar JSON antes de salir
                 partida.finalizarPartida();
                 juegoActivo = false;
                 break;
