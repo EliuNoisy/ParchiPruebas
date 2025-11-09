@@ -6,274 +6,307 @@ import java.util.*;
 import java.util.concurrent.*;
 
 /**
- * Sistema de descubrimiento automatico mejorado
- * Funciona en: misma laptop, 2 laptops, VM, netbeans + cmd
+ * Sistema de descubrimiento MEJORADO - Multi-Subnet
+ * Escanea TODAS las interfaces de red activas
+ * Funciona entre diferentes subredes en la misma PC
  */
 public class DescubrimientoRed {
-    private static final int PUERTO_BROADCAST_MIN = 8888;
-    private static final int PUERTO_BROADCAST_MAX = 8898;
-    private static final String MENSAJE_BUSQUEDA = "PARCHIS_BUSCAR";
-    private static final String MENSAJE_RESPUESTA = "PARCHIS_DISPONIBLE";
+    private static final int PUERTO_DESCUBRIMIENTO = 9999;
+    private static final String MENSAJE_PING = "PARCHIS_PING";
+    private static final String MENSAJE_PONG = "PARCHIS_PONG";
     
     private String nombreJugador;
     private int puertoP2P;
-    private int puertoPropio;
     private long timestamp;
-    private DatagramSocket socketEnvio;
-    private DatagramSocket socketEscucha;
-    private boolean buscando;
-    private Thread hiloRespuesta;
+    private ServerSocket serverDescubrimiento;
+    private boolean escuchando;
+    private Thread hiloEscucha;
     private List<JugadorEncontrado> jugadoresEncontrados;
+    private ExecutorService executor;
+    private Set<String> misIPs;
     
     public DescubrimientoRed(String nombreJugador, int puertoP2P) {
         this.nombreJugador = nombreJugador;
         this.puertoP2P = puertoP2P;
-        this.puertoPropio = encontrarPuertoLibre();
         this.timestamp = System.currentTimeMillis();
         this.jugadoresEncontrados = new CopyOnWriteArrayList<>();
-        this.buscando = false;
+        this.escuchando = false;
+        this.executor = Executors.newFixedThreadPool(100);
+        this.misIPs = new HashSet<>();
     }
     
     /**
-     * Encuentra un puerto libre entre el rango especificado
+     * NUEVO: Obtiene TODAS las IPs locales de todas las interfaces
      */
-    private int encontrarPuertoLibre() {
-        for (int puerto = PUERTO_BROADCAST_MIN; puerto <= PUERTO_BROADCAST_MAX; puerto++) {
-            try {
-                DatagramSocket test = new DatagramSocket(puerto);
-                test.close();
-                System.out.println("[DESCUBRIMIENTO] Puerto asignado: " + puerto);
-                return puerto;
-            } catch (SocketException e) {
-                // Puerto ocupado, probar siguiente
-            }
-        }
-        System.err.println("[DESCUBRIMIENTO] No se encontro puerto libre, usando default");
-        return PUERTO_BROADCAST_MIN;
-    }
-    
-    /**
-     * Busca jugadores disponibles en la red local - MEJORADO
-     * Tiempo aumentado a 5 segundos para mayor confiabilidad
-     */
-    public List<JugadorEncontrado> buscarJugadores(int tiempoEspera) {
-        jugadoresEncontrados.clear();
-        buscando = true;
+    private List<InterfazRed> obtenerTodasLasInterfaces() {
+        List<InterfazRed> interfaces = new ArrayList<>();
         
         try {
-            socketEnvio = new DatagramSocket();
-            socketEnvio.setBroadcast(true);
-            socketEnvio.setSoTimeout(500);
+            Enumeration<NetworkInterface> networkInterfaces = NetworkInterface.getNetworkInterfaces();
             
-            System.out.println("[DESCUBRIMIENTO] Iniciando busqueda activa...");
-            System.out.println("[DESCUBRIMIENTO] Tu timestamp: " + timestamp);
-            
-            long inicio = System.currentTimeMillis();
-            int intentos = 0;
-            
-            while (System.currentTimeMillis() - inicio < tiempoEspera * 1000) {
-                enviarBroadcastMejorado();
-                intentos++;
+            while (networkInterfaces.hasMoreElements()) {
+                NetworkInterface ni = networkInterfaces.nextElement();
                 
-                if (intentos % 6 == 0) {
-                    int restantes = (int)((tiempoEspera * 1000 - (System.currentTimeMillis() - inicio)) / 1000);
-                    System.out.println("[DESCUBRIMIENTO] Buscando... " + 
-                        jugadoresEncontrados.size() + " encontrados | " +
-                        restantes + "s restantes");
-                }
+                // Solo interfaces activas y no loopback
+                if (!ni.isUp() || ni.isLoopback()) continue;
                 
-                Thread.sleep(500);
-            }
-            
-            buscando = false;
-            socketEnvio.close();
-            
-            System.out.println("[DESCUBRIMIENTO] Busqueda finalizada");
-            System.out.println("[DESCUBRIMIENTO] Total encontrados: " + jugadoresEncontrados.size());
-            
-            if (!jugadoresEncontrados.isEmpty()) {
-                for (JugadorEncontrado j : jugadoresEncontrados) {
-                    System.out.println("  - " + j.nombre + " @ " + j.ip + ":" + j.puerto + 
-                                     " (timestamp: " + j.timestamp + ")");
+                Enumeration<InetAddress> addresses = ni.getInetAddresses();
+                while (addresses.hasMoreElements()) {
+                    InetAddress addr = addresses.nextElement();
+                    
+                    // Solo IPv4
+                    if (!(addr instanceof Inet4Address)) continue;
+                    
+                    String ip = addr.getHostAddress();
+                    misIPs.add(ip);
+                    
+                    // Calcular subnet
+                    String[] octetos = ip.split("\\.");
+                    if (octetos.length == 4) {
+                        String baseIP = octetos[0] + "." + octetos[1] + "." + octetos[2] + ".";
+                        
+                        InterfazRed interfaz = new InterfazRed();
+                        interfaz.nombre = ni.getDisplayName();
+                        interfaz.ip = ip;
+                        interfaz.baseSubnet = baseIP;
+                        interfaces.add(interfaz);
+                        
+                        System.out.println("[DESCUBRIMIENTO] Interfaz detectada: " + interfaz.nombre);
+                        System.out.println("                 IP: " + ip);
+                        System.out.println("                 Subnet: " + baseIP + "0-255");
+                    }
                 }
             }
             
         } catch (Exception e) {
-            System.err.println("[DESCUBRIMIENTO] Error: " + e.getMessage());
-            buscando = false;
+            System.err.println("[DESCUBRIMIENTO] Error obteniendo interfaces: " + e.getMessage());
+        }
+        
+        // Si no encontró nada, intentar método alternativo
+        if (interfaces.isEmpty()) {
+            try {
+                String ipLocal = InetAddress.getLocalHost().getHostAddress();
+                String[] octetos = ipLocal.split("\\.");
+                if (octetos.length == 4) {
+                    String baseIP = octetos[0] + "." + octetos[1] + "." + octetos[2] + ".";
+                    InterfazRed interfaz = new InterfazRed();
+                    interfaz.nombre = "Default";
+                    interfaz.ip = ipLocal;
+                    interfaz.baseSubnet = baseIP;
+                    interfaces.add(interfaz);
+                    misIPs.add(ipLocal);
+                }
+            } catch (Exception e) {
+                System.err.println("[DESCUBRIMIENTO] Error método alternativo: " + e.getMessage());
+            }
+        }
+        
+        return interfaces;
+    }
+    
+    /**
+     * Inicia modo de respuesta - servidor TCP que escucha conexiones
+     */
+    public void iniciarModoRespuesta() {
+        hiloEscucha = new Thread(() -> {
+            try {
+                serverDescubrimiento = new ServerSocket(PUERTO_DESCUBRIMIENTO);
+                serverDescubrimiento.setSoTimeout(1000);
+                escuchando = true;
+                
+                System.out.println("[DESCUBRIMIENTO] Servidor escuchando en puerto " + PUERTO_DESCUBRIMIENTO);
+                
+                while (escuchando && !Thread.currentThread().isInterrupted()) {
+                    try {
+                        Socket cliente = serverDescubrimiento.accept();
+                        executor.execute(() -> manejarPing(cliente));
+                    } catch (SocketTimeoutException e) {
+                        // Normal, continuar
+                    }
+                }
+            } catch (Exception e) {
+                if (escuchando) {
+                    System.err.println("[DESCUBRIMIENTO] Error en servidor: " + e.getMessage());
+                }
+            } finally {
+                cerrarServidor();
+            }
+        });
+        hiloEscucha.start();
+    }
+    
+    /**
+     * Maneja solicitud de ping entrante - MEJORADO
+     */
+    private void manejarPing(Socket cliente) {
+        try {
+            BufferedReader entrada = new BufferedReader(new InputStreamReader(cliente.getInputStream()));
+            PrintWriter salida = new PrintWriter(cliente.getOutputStream(), true);
+            
+            String mensaje = entrada.readLine();
+            
+            if (mensaje != null && mensaje.startsWith(MENSAJE_PING)) {
+                String[] partes = mensaje.split(":");
+                if (partes.length >= 4) {
+                    String nombreRemoto = partes[1];
+                    int puertoRemoto = Integer.parseInt(partes[2]);
+                    long timestampRemoto = Long.parseLong(partes[3]);
+                    
+                    // No responderse a sí mismo
+                    if (!nombreRemoto.equals(nombreJugador)) {
+                        System.out.println("[DESCUBRIMIENTO] >>> Ping recibido de: " + nombreRemoto + 
+                                         " (desde " + cliente.getInetAddress().getHostAddress() + ")");
+                        
+                        // Responder inmediatamente
+                        String respuesta = MENSAJE_PONG + ":" + nombreJugador + ":" + 
+                                         puertoP2P + ":" + timestamp;
+                        salida.println(respuesta);
+                        salida.flush();
+                        
+                        System.out.println("[DESCUBRIMIENTO] >>> PONG enviado a " + nombreRemoto);
+                    }
+                }
+            }
+            
+            cliente.close();
+        } catch (Exception e) {
+            // Ignorar errores de conexiones individuales
+        }
+    }
+    
+    /**
+     * MEJORADO: Busca jugadores en TODAS las subredes detectadas
+     */
+    public List<JugadorEncontrado> buscarJugadores(int tiempoEspera) {
+        jugadoresEncontrados.clear();
+        
+        List<InterfazRed> interfaces = obtenerTodasLasInterfaces();
+        
+        if (interfaces.isEmpty()) {
+            System.err.println("[DESCUBRIMIENTO] No se detectaron interfaces de red activas");
+            return new ArrayList<>();
+        }
+        
+        System.out.println("\n[DESCUBRIMIENTO] ==============================================");
+        System.out.println("[DESCUBRIMIENTO] ESCANEANDO " + interfaces.size() + " SUBREDES");
+        System.out.println("[DESCUBRIMIENTO] Timestamp: " + timestamp);
+        System.out.println("[DESCUBRIMIENTO] ==============================================\n");
+        
+        // Mostrar todas las IPs propias
+        System.out.println("[DESCUBRIMIENTO] Mis IPs:");
+        for (String ip : misIPs) {
+            System.out.println("                 - " + ip);
+        }
+        System.out.println();
+        
+        // Escanear todas las subredes en paralelo
+        CountDownLatch latch = new CountDownLatch(interfaces.size() * 255);
+        long inicio = System.currentTimeMillis();
+        
+        for (InterfazRed interfaz : interfaces) {
+            String baseIP = interfaz.baseSubnet;
+            
+            System.out.println("[DESCUBRIMIENTO] Escaneando subnet: " + baseIP + "0-255");
+            
+            for (int i = 1; i <= 255; i++) {
+                String ip = baseIP + i;
+                
+                // Saltar mis propias IPs
+                if (misIPs.contains(ip)) {
+                    latch.countDown();
+                    continue;
+                }
+                
+                final String ipFinal = ip;
+                executor.execute(() -> {
+                    try {
+                        intentarConectar(ipFinal);
+                    } finally {
+                        latch.countDown();
+                    }
+                });
+            }
+        }
+        
+        try {
+            boolean completado = latch.await(tiempoEspera, TimeUnit.SECONDS);
+            
+            if (!completado) {
+                System.out.println("[DESCUBRIMIENTO] Timeout de escaneo alcanzado");
+            }
+            
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        
+        long duracion = (System.currentTimeMillis() - inicio) / 1000;
+        
+        System.out.println("\n[DESCUBRIMIENTO] ==============================================");
+        System.out.println("[DESCUBRIMIENTO] Escaneo completado en " + duracion + " segundos");
+        System.out.println("[DESCUBRIMIENTO] Jugadores encontrados: " + jugadoresEncontrados.size());
+        System.out.println("[DESCUBRIMIENTO] ==============================================\n");
+        
+        for (JugadorEncontrado j : jugadoresEncontrados) {
+            System.out.println("  >>> " + j.nombre + " @ " + j.ip + ":" + j.puerto + 
+                             " (timestamp: " + j.timestamp + ")");
         }
         
         return new ArrayList<>(jugadoresEncontrados);
     }
     
     /**
-     * Inicia modo de respuesta automatica - MEJORADO
+     * Intenta conectar a una IP específica
      */
-    public void iniciarModoRespuesta() {
-        hiloRespuesta = new Thread(() -> {
-            try {
-                socketEscucha = new DatagramSocket(puertoPropio);
-                socketEscucha.setBroadcast(true);
-                socketEscucha.setSoTimeout(100);
-                
-                System.out.println("[DESCUBRIMIENTO] Modo respuesta activo en puerto " + puertoPropio);
-                System.out.println("[DESCUBRIMIENTO] Esperando senales...");
-                
-                byte[] buffer = new byte[2048];
-                
-                while (!Thread.currentThread().isInterrupted()) {
-                    try {
-                        DatagramPacket paquete = new DatagramPacket(buffer, buffer.length);
-                        socketEscucha.receive(paquete);
-                        
-                        String mensaje = new String(paquete.getData(), 0, paquete.getLength());
-                        
-                        if (mensaje.startsWith(MENSAJE_BUSQUEDA)) {
-                            procesarBusquedaMejorada(mensaje, paquete);
-                        } else if (mensaje.startsWith(MENSAJE_RESPUESTA)) {
-                            procesarRespuestaMejorada(mensaje, paquete.getAddress());
-                        }
-                    } catch (SocketTimeoutException e) {
-                        // Timeout normal, continuar
-                    }
-                }
-                
-            } catch (Exception e) {
-                if (!Thread.currentThread().isInterrupted()) {
-                    System.err.println("[DESCUBRIMIENTO] Error escuchando: " + e.getMessage());
-                }
-            } finally {
-                if (socketEscucha != null && !socketEscucha.isClosed()) {
-                    socketEscucha.close();
-                }
-            }
-        });
-        hiloRespuesta.start();
-    }
-    
-    /**
-     * Detiene el modo de respuesta
-     */
-    public void detenerModoRespuesta() {
-        if (hiloRespuesta != null) {
-            hiloRespuesta.interrupt();
-            try {
-                hiloRespuesta.join(1000);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-        }
-        if (socketEscucha != null && !socketEscucha.isClosed()) {
-            socketEscucha.close();
-        }
-        System.out.println("[DESCUBRIMIENTO] Modo respuesta detenido");
-    }
-    
-    /**
-     * Envia broadcast mejorado con timestamp para sincronizacion
-     */
-    private void enviarBroadcastMejorado() {
+    private void intentarConectar(String ip) {
+        Socket socket = null;
         try {
-            String mensaje = MENSAJE_BUSQUEDA + ":" + nombreJugador + ":" + 
-                           puertoPropio + ":" + puertoP2P + ":" + timestamp;
-            byte[] datos = mensaje.getBytes();
+            socket = new Socket();
+            socket.connect(new InetSocketAddress(ip, PUERTO_DESCUBRIMIENTO), 500);
             
-            // Broadcast a todos los puertos posibles
-            for (int puerto = PUERTO_BROADCAST_MIN; puerto <= PUERTO_BROADCAST_MAX; puerto++) {
-                if (puerto == puertoPropio) continue;
-                
-                // Broadcast general (red local)
-                try {
-                    InetAddress broadcast = InetAddress.getByName("255.255.255.255");
-                    DatagramPacket paquete = new DatagramPacket(datos, datos.length, broadcast, puerto);
-                    socketEnvio.send(paquete);
-                } catch (Exception e) {
-                    // Ignorar errores de broadcast
-                }
-                
-                // Localhost (mismo equipo, VM, WSL)
-                try {
-                    InetAddress localhost = InetAddress.getByName("127.0.0.1");
-                    DatagramPacket paqueteLocal = new DatagramPacket(datos, datos.length, localhost, puerto);
-                    socketEnvio.send(paqueteLocal);
-                } catch (Exception e) {
-                    // Ignorar errores
-                }
-                
-                // Direccion local (para VM con bridge)
-                try {
-                    InetAddress localHost = InetAddress.getLocalHost();
-                    DatagramPacket paqueteLocalHost = new DatagramPacket(datos, datos.length, localHost, puerto);
-                    socketEnvio.send(paqueteLocalHost);
-                } catch (Exception e) {
-                    // Ignorar errores
-                }
+            PrintWriter salida = new PrintWriter(socket.getOutputStream(), true);
+            BufferedReader entrada = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            
+            String mensaje = MENSAJE_PING + ":" + nombreJugador + ":" + puertoP2P + ":" + timestamp;
+            salida.println(mensaje);
+            salida.flush();
+            
+            socket.setSoTimeout(1000);
+            String respuesta = entrada.readLine();
+            
+            if (respuesta != null && respuesta.startsWith(MENSAJE_PONG)) {
+                procesarRespuesta(respuesta, ip);
             }
             
         } catch (Exception e) {
-            System.err.println("[DESCUBRIMIENTO] Error enviando broadcast: " + e.getMessage());
-        }
-    }
-    
-    /**
-     * Procesa mensaje de busqueda con timestamp - MEJORADO
-     */
-    private void procesarBusquedaMejorada(String mensaje, DatagramPacket paquete) {
-        try {
-            String[] partes = mensaje.split(":");
-            if (partes.length >= 5) {
-                String nombreRemoto = partes[1];
-                int puertoRemoto = Integer.parseInt(partes[2]);
-                int puertoP2PRemoto = Integer.parseInt(partes[3]);
-                long timestampRemoto = Long.parseLong(partes[4]);
-                
-                // No responderse a si mismo
-                if (nombreRemoto.equals(nombreJugador)) {
-                    return;
+            // IP no responde, normal durante escaneo
+        } finally {
+            try {
+                if (socket != null && !socket.isClosed()) {
+                    socket.close();
                 }
-                
-                System.out.println("[DESCUBRIMIENTO] Recibida busqueda de: " + nombreRemoto + 
-                                 " (timestamp: " + timestampRemoto + ")");
-                
-                // Enviar respuesta directa CON timestamp
-                String respuesta = MENSAJE_RESPUESTA + ":" + nombreJugador + ":" + 
-                                 puertoP2P + ":" + timestamp;
-                byte[] datosRespuesta = respuesta.getBytes();
-                
-                DatagramPacket paqueteRespuesta = new DatagramPacket(
-                    datosRespuesta, 
-                    datosRespuesta.length, 
-                    paquete.getAddress(), 
-                    puertoRemoto
-                );
-                
-                socketEscucha.send(paqueteRespuesta);
-                
-                System.out.println("[DESCUBRIMIENTO] Respondido a " + nombreRemoto);
+            } catch (IOException e) {
+                // Ignorar
             }
-        } catch (Exception e) {
-            System.err.println("[DESCUBRIMIENTO] Error procesando busqueda: " + e.getMessage());
         }
     }
     
     /**
-     * Procesa respuesta con timestamp - MEJORADO
+     * Procesa respuesta PONG - MEJORADO
      */
-    private void procesarRespuestaMejorada(String mensaje, InetAddress direccion) {
+    private void procesarRespuesta(String mensaje, String ip) {
         try {
             String[] partes = mensaje.split(":");
             if (partes.length >= 4) {
                 String nombre = partes[1];
                 int puerto = Integer.parseInt(partes[2]);
                 long timestampRemoto = Long.parseLong(partes[3]);
-                String ip = direccion.getHostAddress();
                 
-                // No agregarse a si mismo
+                // No agregarse a sí mismo
                 if (nombre.equals(nombreJugador)) {
                     return;
                 }
                 
-                // Verificar duplicados por nombre
+                // Verificar duplicados
                 synchronized (jugadoresEncontrados) {
                     for (JugadorEncontrado j : jugadoresEncontrados) {
                         if (j.nombre.equals(nombre)) {
@@ -284,12 +317,50 @@ public class DescubrimientoRed {
                     JugadorEncontrado jugador = new JugadorEncontrado(nombre, ip, puerto, timestampRemoto);
                     jugadoresEncontrados.add(jugador);
                     
-                    System.out.println("[DESCUBRIMIENTO] >>> Jugador encontrado: " + nombre + 
-                                     " @ " + ip + ":" + puerto + " (timestamp: " + timestampRemoto + ")");
+                    System.out.println("\n[DESCUBRIMIENTO] *** JUGADOR ENCONTRADO ***");
+                    System.out.println("                 Nombre: " + nombre);
+                    System.out.println("                 IP: " + ip);
+                    System.out.println("                 Puerto P2P: " + puerto);
+                    System.out.println("                 Timestamp: " + timestampRemoto);
+                    System.out.println();
                 }
             }
         } catch (Exception e) {
             System.err.println("[DESCUBRIMIENTO] Error procesando respuesta: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Detiene el modo de respuesta
+     */
+    public void detenerModoRespuesta() {
+        escuchando = false;
+        
+        if (hiloEscucha != null) {
+            hiloEscucha.interrupt();
+            try {
+                hiloEscucha.join(2000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+        
+        cerrarServidor();
+        executor.shutdown();
+        
+        System.out.println("[DESCUBRIMIENTO] Modo respuesta detenido");
+    }
+    
+    /**
+     * Cierra el servidor de descubrimiento
+     */
+    private void cerrarServidor() {
+        if (serverDescubrimiento != null && !serverDescubrimiento.isClosed()) {
+            try {
+                serverDescubrimiento.close();
+            } catch (IOException e) {
+                // Ignorar
+            }
         }
     }
     
@@ -301,7 +372,16 @@ public class DescubrimientoRed {
     }
     
     /**
-     * Clase interna para jugador encontrado - MEJORADA
+     * Clase interna para representar una interfaz de red
+     */
+    private static class InterfazRed {
+        String nombre;
+        String ip;
+        String baseSubnet;
+    }
+    
+    /**
+     * Clase interna para jugador encontrado
      */
     public static class JugadorEncontrado {
         public String nombre;

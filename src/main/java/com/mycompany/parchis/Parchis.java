@@ -9,8 +9,9 @@ import java.util.List;
 import java.util.Scanner;
 
 /**
- * Clase principal del juego Parchis Star - MEJORADA
- * Conexion automatica confiable en: misma laptop, 2 laptops, VM, netbeans+cmd
+ * Clase principal del juego Parchis Star - MULTI-SUBNET
+ * Escanea automáticamente todas las interfaces de red
+ * Funciona entre diferentes subredes en el mismo router
  */
 public class Parchis {
     
@@ -28,7 +29,7 @@ public class Parchis {
         
         System.out.println("\n=== SELECCION DE MODO ===");
         System.out.println("1. Juego Local (sin red)");
-        System.out.println("2. Juego Online (conexion automatica)");
+        System.out.println("2. Juego Online (conexion automatica multi-subnet)");
         System.out.print("Selecciona una opcion: ");
         
         int modoJuego = scanner.nextInt();
@@ -40,7 +41,7 @@ public class Parchis {
         Partida partida = new Partida(1);
         
         if (modoJuego == 2) {
-            System.out.println("\n=== MODO ONLINE AUTOMATICO MEJORADO ===");
+            System.out.println("\n=== MODO ONLINE AUTOMATICO MULTI-SUBNET ===");
             System.out.print("Ingresa tu nombre: ");
             String nombreLocal = scanner.nextLine();
             
@@ -48,21 +49,26 @@ public class Parchis {
             
             DescubrimientoRed descubrimiento = new DescubrimientoRed(nombreLocal, puertoBase);
             
+            System.out.println("\n[INFORMACION IMPORTANTE]");
+            System.out.println("  - Este sistema escanea TODAS las interfaces de red activas");
+            System.out.println("  - Funciona aunque las PCs esten en diferentes subredes");
+            System.out.println("  - Asegurate que ambas PCs esten conectadas al mismo router");
+            System.out.println("  - Puede ser WiFi, Ethernet, o una combinacion de ambas");
+            System.out.println("\nPresiona ENTER para iniciar busqueda...");
+            scanner.nextLine();
+            
             // Iniciar modo respuesta
             descubrimiento.iniciarModoRespuesta();
             
             System.out.println("\n================================================");
-            System.out.println("  Buscando jugadores en la red...");
-            System.out.println("  Tiempo de busqueda: 5 segundos");
-            System.out.println("  Escenarios soportados:");
-            System.out.println("  - Misma laptop (NetBeans + CMD)");
-            System.out.println("  - 2 Laptops en misma red");
-            System.out.println("  - Virtual Machine");
-            System.out.println("================================================");
+            System.out.println("  INICIANDO ESCANEO MULTI-SUBNET");
+            System.out.println("  Tiempo de busqueda: 15 segundos");
+            System.out.println("  Escaneando TODAS las interfaces de red...");
+            System.out.println("================================================\n");
             
-            // Buscar durante 5 segundos (aumentado para mayor confiabilidad)
+            // Buscar durante 15 segundos
             List<DescubrimientoRed.JugadorEncontrado> jugadoresEncontrados = 
-                descubrimiento.buscarJugadores(5);
+                descubrimiento.buscarJugadores(15);
             
             // Espera adicional para recibir respuestas finales
             try { Thread.sleep(1000); } catch (InterruptedException e) {}
@@ -75,26 +81,37 @@ public class Parchis {
             DescubrimientoRed.JugadorEncontrado oponente = null;
             
             if (jugadoresEncontrados.isEmpty()) {
-                // Nadie encontrado - soy anfitrion por defecto
                 System.out.println("\n================================================");
-                System.out.println("  No se encontraron otros jugadores");
+                System.out.println("  NO SE ENCONTRARON JUGADORES");
                 System.out.println("  >>> SERAS EL ANFITRION <<<");
                 System.out.println("  (Jugador 1 - Amarillo)");
                 System.out.println("================================================");
+                System.out.println("\n[POSIBLES CAUSAS]");
+                System.out.println("  - La otra PC no ha iniciado el juego todavia");
+                System.out.println("  - No estan conectadas al mismo router fisico");
+                System.out.println("  - Firewall bloqueando puerto TCP 9999");
+                System.out.println("  - Router con aislamiento entre clientes (AP Isolation)");
+                System.out.println("\n[SOLUCION]");
+                System.out.println("  1. Verifica que ambas PCs esten conectadas al MISMO router");
+                System.out.println("  2. Inicia el juego en la otra PC AHORA");
+                System.out.println("  3. Si el firewall esta activo, permite puerto TCP 9999");
+                System.out.println("  4. Espera a que el otro jugador se conecte...\n");
                 
             } else {
-                // Alguien encontrado - comparar timestamps
                 oponente = jugadoresEncontrados.get(0);
                 long miTimestamp = descubrimiento.getTimestamp();
                 long timestampOponente = oponente.timestamp;
                 
                 System.out.println("\n================================================");
-                System.out.println("  Jugador detectado: " + oponente.nombre);
+                System.out.println("  *** JUGADOR DETECTADO ***");
+                System.out.println("  Nombre: " + oponente.nombre);
+                System.out.println("  IP: " + oponente.ip);
+                System.out.println("  Puerto P2P: " + oponente.puerto);
                 System.out.println("  Tu timestamp: " + miTimestamp);
                 System.out.println("  Su timestamp: " + timestampOponente);
                 System.out.println("================================================");
                 
-                // El que tenga MENOR timestamp es anfitrion
+                // El que tenga MENOR timestamp es anfitrión
                 if (miTimestamp < timestampOponente) {
                     soyAnfitrion = true;
                     System.out.println("\n>>> TU TIMESTAMP ES MENOR <<<");
@@ -119,19 +136,21 @@ public class Parchis {
                                                    partida.getTablero(), jugadorLocalId);
                 
                 try {
-                    System.out.println("\n[ANFITRION] Iniciando servidor en puerto " + puertoBase + "...");
+                    System.out.println("\n[ANFITRION] Iniciando servidor P2P en puerto " + puertoBase + "...");
                     controladorRed.iniciarComoAnfitrion();
                     
                     Jugador jugador1 = new Jugador(1, nombreLocal, "Amarillo");
                     partida.agregarJugador(jugador1);
                     
                     if (oponente == null) {
-                        // Esperar conexion nueva
-                        System.out.println("[ANFITRION] Esperando que otro jugador se conecte...");
+                        // Esperar conexión nueva
+                        System.out.println("[ANFITRION] Esperando conexion de otro jugador...");
+                        System.out.println("[ANFITRION] Timeout: 90 segundos");
                         String nombreJugador2 = controladorRed.esperarNombreOponente();
                         
                         if (nombreJugador2 == null || nombreJugador2.isEmpty()) {
-                            System.out.println("\nERROR: No se recibio conexion.");
+                            System.out.println("\n[ERROR] Timeout - no se recibio conexion");
+                            System.out.println("Verifica que el otro jugador este ejecutando el juego");
                             controladorRed.cerrar();
                             scanner.close();
                             return;
@@ -143,10 +162,12 @@ public class Parchis {
                     } else {
                         // Esperar que el cliente detectado se conecte
                         System.out.println("[ANFITRION] Esperando conexion de " + oponente.nombre + "...");
+                        System.out.println("[ANFITRION] IP esperada: " + oponente.ip);
                         String nombreJugador2 = controladorRed.esperarNombreOponente();
                         
                         if (nombreJugador2 == null || nombreJugador2.isEmpty()) {
-                            System.out.println("\nERROR: El oponente no se conecto.");
+                            System.out.println("\n[ERROR] El oponente no se conecto");
+                            System.out.println("Posible causa: El cliente no pudo conectar al puerto " + puertoBase);
                             controladorRed.cerrar();
                             scanner.close();
                             return;
@@ -156,9 +177,9 @@ public class Parchis {
                         partida.agregarJugador(jugador2);
                     }
                     
-                    System.out.println("\n[ANFITRION] Conexion establecida!");
+                    System.out.println("\n[ANFITRION] CONEXION ESTABLECIDA!");
                     System.out.println("\n================================================");
-                    System.out.println("  Jugadores listos:");
+                    System.out.println("  JUGADORES LISTOS:");
                     System.out.println("  1. " + nombreLocal + " (Amarillo) - TU");
                     System.out.println("  2. " + partida.getJugadores().get(1).getNombre() + " (Azul)");
                     System.out.println("================================================");
@@ -169,7 +190,7 @@ public class Parchis {
                     controladorRed.enviarInicioPartida();
                     
                 } catch (Exception e) {
-                    System.err.println("\nERROR: " + e.getMessage());
+                    System.err.println("\n[ERROR] " + e.getMessage());
                     e.printStackTrace();
                     if (controladorRed != null) {
                         controladorRed.cerrar();
@@ -183,7 +204,7 @@ public class Parchis {
                 // CLIENTE
                 // =============================================
                 if (oponente == null) {
-                    System.out.println("\nERROR: No se puede ser cliente sin oponente");
+                    System.out.println("\n[ERROR] No se puede ser cliente sin oponente detectado");
                     scanner.close();
                     return;
                 }
@@ -195,16 +216,17 @@ public class Parchis {
                 try {
                     System.out.println("\n[CLIENTE] Iniciando servidor local en puerto " + (puertoBase + 1) + "...");
                     
-                    // Espera mas larga para garantizar que anfitrion este listo
-                    System.out.println("[CLIENTE] Esperando 5 segundos para sincronizacion...");
-                    Thread.sleep(5000);
+                    // Espera para garantizar que anfitrión esté listo
+                    System.out.println("[CLIENTE] Esperando 8 segundos para sincronizacion...");
+                    Thread.sleep(8000);
                     
                     System.out.println("[CLIENTE] Conectando a " + oponente.ip + ":" + oponente.puerto + "...");
+                    System.out.println("[CLIENTE] Intentando establecer conexion P2P...");
                     
-                    // Reintentos automaticos
+                    // Reintentos automáticos
                     boolean conectado = false;
                     int intentos = 0;
-                    int maxIntentos = 3;
+                    int maxIntentos = 5;
                     
                     while (!conectado && intentos < maxIntentos) {
                         intentos++;
@@ -213,27 +235,28 @@ public class Parchis {
                         conectado = controladorRed.unirseAPartida(oponente.ip, oponente.puerto);
                         
                         if (!conectado && intentos < maxIntentos) {
-                            System.out.println("[CLIENTE] Reintentando en 2 segundos...");
-                            Thread.sleep(2000);
+                            System.out.println("[CLIENTE] Reintentando en 3 segundos...");
+                            Thread.sleep(3000);
                         }
                     }
                     
                     if (!conectado) {
-                        System.out.println("\nERROR: No se pudo conectar despues de " + maxIntentos + " intentos");
+                        System.out.println("\n[ERROR] No se pudo conectar al anfitrion");
                         System.out.println("Posibles causas:");
-                        System.out.println("  - Firewall bloqueando conexion");
+                        System.out.println("  - Firewall bloqueando puerto " + oponente.puerto);
                         System.out.println("  - El anfitrion cerro el programa");
-                        System.out.println("  - Problema de red");
+                        System.out.println("  - Router bloqueando conexiones entre subredes");
+                        System.out.println("  - NAT/UPnP mal configurado en el router");
                         scanner.close();
                         return;
                     }
                     
-                    System.out.println("[CLIENTE] Conectado exitosamente!");
+                    System.out.println("[CLIENTE] CONECTADO EXITOSAMENTE!");
                     
                     String nombreJugador1 = controladorRed.esperarNombreOponente();
                     
                     if (nombreJugador1 == null || nombreJugador1.isEmpty()) {
-                        System.out.println("\nERROR: Error recibiendo datos del anfitrion");
+                        System.out.println("\n[ERROR] Error recibiendo datos del anfitrion");
                         controladorRed.cerrar();
                         scanner.close();
                         return;
@@ -246,7 +269,7 @@ public class Parchis {
                     partida.agregarJugador(jugador2);
                     
                     System.out.println("\n================================================");
-                    System.out.println("  Jugadores listos:");
+                    System.out.println("  JUGADORES LISTOS:");
                     System.out.println("  1. " + nombreJugador1 + " (Amarillo)");
                     System.out.println("  2. " + nombreLocal + " (Azul) - TU");
                     System.out.println("================================================");
@@ -254,10 +277,10 @@ public class Parchis {
                     System.out.println("\n[CLIENTE] Esperando que " + nombreJugador1 + " inicie la partida...");
                     
                     controladorRed.esperarInicioPartida();
-                    System.out.println("[CLIENTE] Partida iniciada por el anfitrion!");
+                    System.out.println("[CLIENTE] Partida iniciada!");
                     
                 } catch (Exception e) {
-                    System.err.println("\nERROR: " + e.getMessage());
+                    System.err.println("\n[ERROR] " + e.getMessage());
                     e.printStackTrace();
                     if (controladorRed != null) {
                         controladorRed.cerrar();
