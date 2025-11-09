@@ -4,8 +4,10 @@
  */
 package modelo;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 public class Ficha {
-    private static int contadorId = 0;
+    private static AtomicInteger contadorId = new AtomicInteger(0);
     private int idFicha;
     private String color;
     private int posicion;
@@ -19,7 +21,7 @@ public class Ficha {
      * @param color Color de la ficha segun el jugador
      */
     public Ficha(String color) {
-        this.idFicha = ++contadorId;
+        this.idFicha = contadorId.incrementAndGet();
         this.color = color;
         this.posicion = -1;
         this.enCasa = true;
@@ -46,8 +48,8 @@ public class Ficha {
         this.enCasa = true;
         this.enMeta = false;
         
-        if (idFicha > contadorId) {
-            contadorId = idFicha;
+        if (idFicha > contadorId.get()) {
+            contadorId.set(idFicha);
         }
     }
     
@@ -56,7 +58,7 @@ public class Ficha {
      * IMPORTANTE: Llamar este metodo al inicio del programa
      */
     public static void resetearContador() {
-        contadorId = 0;
+        contadorId.set(0);
     }
     
     /**
@@ -64,7 +66,7 @@ public class Ficha {
      * Util para sincronizacion
      */
     public static int getContadorActual() {
-        return contadorId;
+        return contadorId.get();
     }
     
     /**

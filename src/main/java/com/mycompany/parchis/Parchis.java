@@ -10,7 +10,7 @@ import java.util.Scanner;
 
 /**
  * Clase principal del juego Parchis Star - MULTI-SUBNET
- * Escanea automáticamente todas las interfaces de red
+ * Escanea automaticamente todas las interfaces de red
  * Funciona entre diferentes subredes en el mismo router
  */
 public class Parchis {
@@ -111,7 +111,7 @@ public class Parchis {
                 System.out.println("  Su timestamp: " + timestampOponente);
                 System.out.println("================================================");
                 
-                // El que tenga MENOR timestamp es anfitrión
+                // El que tenga MENOR timestamp es anfitrion
                 if (miTimestamp < timestampOponente) {
                     soyAnfitrion = true;
                     System.out.println("\n>>> TU TIMESTAMP ES MENOR <<<");
@@ -143,7 +143,7 @@ public class Parchis {
                     partida.agregarJugador(jugador1);
                     
                     if (oponente == null) {
-                        // Esperar conexión nueva
+                        // Esperar conexion nueva
                         System.out.println("[ANFITRION] Esperando conexion de otro jugador...");
                         System.out.println("[ANFITRION] Timeout: 90 segundos");
                         String nombreJugador2 = controladorRed.esperarNombreOponente();
@@ -216,14 +216,14 @@ public class Parchis {
                 try {
                     System.out.println("\n[CLIENTE] Iniciando servidor local en puerto " + (puertoBase + 1) + "...");
                     
-                    // Espera para garantizar que anfitrión esté listo
+                    // Espera para garantizar que anfitrion este listo
                     System.out.println("[CLIENTE] Esperando 8 segundos para sincronizacion...");
                     Thread.sleep(8000);
                     
                     System.out.println("[CLIENTE] Conectando a " + oponente.ip + ":" + oponente.puerto + "...");
                     System.out.println("[CLIENTE] Intentando establecer conexion P2P...");
                     
-                    // Reintentos automáticos
+                    // Reintentos automaticos
                     boolean conectado = false;
                     int intentos = 0;
                     int maxIntentos = 5;
@@ -331,7 +331,10 @@ public class Parchis {
                 System.out.println("  OPONENTE DESCONECTADO");
                 System.out.println("  La partida terminara...");
                 System.out.println("================================================");
+                
+                // FIX: Guardar JSON antes de salir
                 partida.finalizarPartida();
+                juegoActivo = false;
                 break;
             }
             

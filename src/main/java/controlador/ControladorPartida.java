@@ -10,6 +10,7 @@ import vista.PantallaPartida;
 import utilidades.RegistroPartidaJSON;
 import java.util.List;
 import java.util.Scanner;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class ControladorPartida {
     private Partida partida;
@@ -19,7 +20,7 @@ public class ControladorPartida {
     private ControladorRed controladorRed;
     private int jugadorLocalId;
     private int casillasPremio;
-    private boolean procesandoPremio;
+    private AtomicBoolean procesandoPremio;
     
     public ControladorPartida(Partida partida, PantallaPartida vista, Scanner scanner, int jugadorLocalId) {
         this.partida = partida;
@@ -29,7 +30,7 @@ public class ControladorPartida {
         this.controladorRed = null;
         this.jugadorLocalId = jugadorLocalId;
         this.casillasPremio = 0;
-        this.procesandoPremio = false;
+        this.procesandoPremio = new AtomicBoolean(false);
     }
     
     public void setControladorRed(ControladorRed controladorRed) {
@@ -43,7 +44,7 @@ public class ControladorPartida {
     }
     
     public void iniciarTurno() {
-        if (procesandoPremio) {
+        if (procesandoPremio.get()) {
             return;
         }
         
@@ -73,13 +74,13 @@ public class ControladorPartida {
      * Aplica el premio de casillas acumuladas 
      */
     private void aplicarPremio(Jugador jugador) {
-        procesandoPremio = true;
+        procesandoPremio.set(true);
         List<Ficha> fichasDisponibles = jugador.getFichasEnJuego();
         
         if (fichasDisponibles.isEmpty()) {
             vista.mostrarMensaje("No tienes fichas en juego para usar el premio. Se pierde.");
             casillasPremio = 0;
-            procesandoPremio = false;
+            procesandoPremio.set(false);
             return;
         }
         
@@ -95,7 +96,7 @@ public class ControladorPartida {
         
         moverFicha(fichaSeleccionada, casillasPremio, true);
         casillasPremio = 0;
-        procesandoPremio = false;
+        procesandoPremio.set(false);
     }
     
     public void lanzarDado() {
@@ -216,7 +217,7 @@ public class ControladorPartida {
     }
     
     /**
-     * Aplica movimiento recibido desde la red
+     * Aplica movimiento recibido desde la red con validacion
      */
     public void aplicarMovimientoRemoto(int jugadorId, int fichaId, int pasos) {
         Jugador jugador = null;
@@ -245,7 +246,43 @@ public class ControladorPartida {
             return;
         }
         
+        // Validar que el movimiento remoto sea legal
+        if (!validarMovimientoRemoto(ficha, pasos, jugador)) {
+            System.err.println("[ERROR] Movimiento remoto invalido rechazado");
+            return;
+        }
+        
         moverFicha(ficha, pasos, false);
+    }
+    
+    /**
+     * Valida que un movimiento recibido por red sea legal
+     */
+    private boolean validarMovimientoRemoto(Ficha ficha, int pasos, Jugador jugador) {
+        // Validar rango del dado
+        if (pasos < 1 || pasos > 6) {
+            return false;
+        }
+        
+        // No se puede mover una ficha en meta
+        if (ficha.isEnMeta()) {
+            return false;
+        }
+        
+        // Si esta en casa, solo puede salir con 5
+        if (ficha.isEnCasa() && pasos != 5) {
+            return false;
+        }
+        
+        // Validar que la nueva posicion sea valida
+        if (!ficha.isEnCasa()) {
+            int nuevaPosicion = ficha.getPosicion() + pasos;
+            if (nuevaPosicion < 0) {
+                return false;
+            }
+        }
+        
+        return true;
     }
     
     private int obtenerPosicionSalida(String color) {

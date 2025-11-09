@@ -6,7 +6,7 @@ import java.util.*;
 import java.util.concurrent.*;
 
 /**
- * Sistema de descubrimiento MEJORADO - Multi-Subnet
+ * Sistema de descubrimiento MEJORADO 
  * Escanea TODAS las interfaces de red activas
  * Funciona entre diferentes subredes en la misma PC
  */
@@ -31,7 +31,10 @@ public class DescubrimientoRed {
         this.timestamp = System.currentTimeMillis();
         this.jugadoresEncontrados = new CopyOnWriteArrayList<>();
         this.escuchando = false;
-        this.executor = Executors.newFixedThreadPool(100);
+        
+        // FIX: Reducir threads para evitar sobrecarga
+        int maxThreads = Math.min(Runtime.getRuntime().availableProcessors() * 2, 50);
+        this.executor = Executors.newFixedThreadPool(maxThreads);
         this.misIPs = new HashSet<>();
     }
     
@@ -82,7 +85,7 @@ public class DescubrimientoRed {
             System.err.println("[DESCUBRIMIENTO] Error obteniendo interfaces: " + e.getMessage());
         }
         
-        // Si no encontró nada, intentar método alternativo
+        // Si no encontro nada, intentar metodo alternativo
         if (interfaces.isEmpty()) {
             try {
                 String ipLocal = InetAddress.getLocalHost().getHostAddress();
@@ -97,7 +100,7 @@ public class DescubrimientoRed {
                     misIPs.add(ipLocal);
                 }
             } catch (Exception e) {
-                System.err.println("[DESCUBRIMIENTO] Error método alternativo: " + e.getMessage());
+                System.err.println("[DESCUBRIMIENTO] Error metodo alternativo: " + e.getMessage());
             }
         }
         
@@ -152,7 +155,7 @@ public class DescubrimientoRed {
                     int puertoRemoto = Integer.parseInt(partes[2]);
                     long timestampRemoto = Long.parseLong(partes[3]);
                     
-                    // No responderse a sí mismo
+                    // No responderse a si mismo
                     if (!nombreRemoto.equals(nombreJugador)) {
                         System.out.println("[DESCUBRIMIENTO] >>> Ping recibido de: " + nombreRemoto + 
                                          " (desde " + cliente.getInetAddress().getHostAddress() + ")");
@@ -255,7 +258,7 @@ public class DescubrimientoRed {
     }
     
     /**
-     * Intenta conectar a una IP específica
+     * Intenta conectar a una IP especifica
      */
     private void intentarConectar(String ip) {
         Socket socket = null;
@@ -301,7 +304,7 @@ public class DescubrimientoRed {
                 int puerto = Integer.parseInt(partes[2]);
                 long timestampRemoto = Long.parseLong(partes[3]);
                 
-                // No agregarse a sí mismo
+                // No agregarse a si mismo
                 if (nombre.equals(nombreJugador)) {
                     return;
                 }
